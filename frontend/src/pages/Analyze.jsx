@@ -8,8 +8,11 @@ import {
   getVideo, getFundamentos, getClassificacoes, getAthletes, getPositions, getFormations, getSettings,
   getActions, createAction, updateAction, deleteAction, setVideoStatus, linkRally,
   getKphases, suggestPhase, closePoint, setRallyWinner, getRalliesFull, updateVideo,
-  removePoint, reattachAction, setVideoOriginal, uploadFile,
+  removePoint, reattachAction, setVideoOriginal, uploadFile, getMatch, saveMatchRules, applyProposedSets, editRally,
 } from "@/lib/api";
+import { MatchSummary } from "@/components/MatchSummary";
+import { RallyRow } from "@/components/RallyRow";
+import { SetRulesDialog } from "@/components/SetRulesDialog";
 import { AnnoTimingPanel } from "@/components/AnnoTimingPanel";
 import { RemovePointDialog } from "@/components/RemovePointDialog";
 import { renderClip, renderSourcePath } from "@/lib/clipRender";
@@ -98,6 +101,9 @@ export default function Analyze() {
   const [pointBusy, setPointBusy] = useState(false);
   const [removeRally, setRemoveRally] = useState(null);
   const [exporting, setExporting] = useState(null);
+  const [match, setMatch] = useState(null);
+  const [setFilter, setSetFilter] = useState(null);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const originalInput = useRef(null);
   const clipStop = useRef(null);
   const lastTimeRef = useRef(0);
@@ -107,7 +113,8 @@ export default function Analyze() {
   useEffect(() => { autoPauseRef.current = autoPause; }, [autoPause]);
 
   const reloadActions = useCallback(() => getActions({ video_id: videoId }).then(setActions), [videoId]);
-  const reloadRallies = useCallback(() => getRalliesFull(videoId).then(setRallies), [videoId]);
+  const reloadRallies = useCallback(() => Promise.all([getRalliesFull(videoId).then(setRallies), getMatch(videoId).then(setMatch)]), [videoId]);
+  useEffect(() => { if (match?.current_set) setSetNumber(match.current_set); }, [match?.current_set, match?.total_rallies]);
 
   const phaseKeys = useMemo(() => (kphases.length ? kphases.map((k) => k.key) : ["K1", "K2", "K3"]), [kphases]);
   const phaseName = (key) => kphases.find((k) => k.key === key)?.name || "";
@@ -164,11 +171,22 @@ export default function Analyze() {
       await Promise.all([reloadActions(), reloadRallies()]);
     } catch { setPointBusy(false); return toast.error("Falha ao registrar o ponto"); }
     setPointBusy(false);
+    if (winner === "pendente") return toast.warning("Rali encerrado com resultado pendente de revisão");
     setServingTeam(winner); // vencedor do rally saca no próximo
     toast.success(`Ponto ${winner === "nos" ? (video.equipe_name || "AVA") : (video.opponent || "Adversário")}! Rally encerrado.`);
   };
 
-  const teamName = (w) => (w === "nos" ? (video?.equipe_name || "AVA") : (video?.opponent || "Adversário"));
+  const teamName = (w) => (w === "pendente" ? "Pendente" : w === "nos" ? (video?.equipe_name || "AVA") : (video?.opponent || "Adversário"));
+  const saveRules = async (rules) => {
+    try { const s = await saveMatchRules(videoId, rules); setVideo((v) => ({ ...v, ...rules })); await reloadRallies(); setRulesOpen(false);
+      toast.success(s.review_count ? `Regras salvas — placar recalculado. ${s.review_count} rali(s) para revisão.` : "Regras salvas — placar recalculado");
+    } catch (e) { toast.error(e?.response?.data?.detail || "Falha ao salvar as regras"); }
+  };
+  const applyProposal = async () => { const s = await applyProposedSets(videoId); await Promise.all([reloadRallies(), reloadActions()]); toast.success(`${s.moved} rali(s) reorganizado(s) conforme as regras`); };
+  const onEditRally = async (r, body) => {
+    try { await editRally(r.id, body); } catch (e) { return toast.error(e?.response?.data?.detail || "Falha ao salvar o rali"); }
+    await Promise.all([reloadRallies(), reloadActions()]); toast.success("Rali atualizado — placar recalculado");
+  };
   const undoLastPoint = () => {
     const last = [...rallies].sort((a, b) => b.number - a.number)[0];
     if (!last) return toast.error("Nenhum ponto registrado");
@@ -346,6 +364,8 @@ export default function Analyze() {
   const pointsNos = rallies.filter((r) => r.winner === "nos").length;
   const pointsAdv = rallies.filter((r) => r.winner === "adv").length;
   const pad3 = (n) => String(n).padStart(3, "0");
+  const setCount = Math.max(match?.set_rules?.length || 5, ...rallies.map((r) => r.set_number || 1), setNumber);
+  const visibleRallies = setFilter == null ? rallies : rallies.filter((r) => (r.set_number || 1) === setFilter);
 
   return (
     <Layout back="/galeria">
@@ -370,7 +390,7 @@ export default function Analyze() {
 
       {/* SCOREBOARD + PONTO */}
       <div className="rounded-xl border border-border bg-card p-3 mb-4 flex flex-wrap items-center gap-3">
-        <Scoreboard home={video.equipe_name || "AVA"} away={video.opponent || "Adversário"} score={scoreAt(time, setNumber)} set={setNumber} serving={servingTeam} onServe={setServingTeam} />
+        <Scoreboard home={video.equipe_name || "AVA"} away={video.opponent || "Adversário"} score={scoreAt(time, setNumber)} set={setNumber} rule={match?.set_rules?.[Math.min(setNumber, match.set_rules.length) - 1]} serving={servingTeam} onServe={setServingTeam} />
         <div className="flex items-center gap-1.5 flex-wrap" data-testid="match-counters">
           <span className="rounded-md bg-secondary px-2 py-1 text-[11px] font-data font-semibold">Saque {pad3(saqueCount)}</span>
           <span className="rounded-md bg-secondary px-2 py-1 text-[11px] font-data font-semibold">Side-out {pad3(sideOutCount)}</span>
@@ -379,15 +399,18 @@ export default function Analyze() {
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-[11px] text-muted-foreground uppercase tracking-wider">Set</span>
-          <select data-testid="set-select" value={setNumber} onChange={(e) => setSetNumber(Number(e.target.value))} className="rounded-lg border border-border bg-background px-2 py-1.5 text-sm outline-none">{[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}</select>
+          <select data-testid="set-select" value={setNumber} onChange={(e) => setSetNumber(Number(e.target.value))} className="rounded-lg border border-border bg-background px-2 py-1.5 text-sm outline-none">{Array.from({ length: setCount }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}</select>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <span className="text-[11px] text-muted-foreground">Encerrar rally — ponto de:</span>
           <button data-testid="point-nos" disabled={pointBusy} onClick={() => registerPoint("nos")} className="disabled:opacity-50 inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:brightness-110"><Trophy size={13} /> {video.equipe_name || "AVA"}</button>
           <button data-testid="point-adv" disabled={pointBusy} onClick={() => registerPoint("adv")} className="disabled:opacity-50 inline-flex items-center gap-1.5 rounded-lg bg-foreground px-3 py-1.5 text-xs font-semibold text-background hover:opacity-90"><Trophy size={13} /> {video.opponent || "Adversário"}</button>
+          <button data-testid="point-pending" disabled={pointBusy} onClick={() => registerPoint("pendente")} title="Encerrar rali sem definir o vencedor (fica para revisão)" className="disabled:opacity-50 inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 px-3 py-1.5 text-xs font-semibold text-amber-500 hover:bg-amber-500/10">Pendente</button>
           <button data-testid="undo-last-point" onClick={undoLastPoint} disabled={!rallies.length || pointBusy} title="Desfazer / remover último ponto" className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-primary hover:border-primary/40 disabled:opacity-40"><Undo2 size={13} /> Desfazer ponto</button>
         </div>
       </div>
+
+      <MatchSummary match={match} home={video.equipe_name || "AVA"} away={video.opponent || "Adversário"} setFilter={setFilter} onFilter={setSetFilter} onOpenRules={() => setRulesOpen(true)} onApplyProposal={applyProposal} />
 
       {/* QUICK MARK BAR */}
       <div className="rounded-xl border border-primary/30 bg-card p-3 mb-4">
@@ -584,40 +607,22 @@ export default function Analyze() {
           <div className="rounded-xl border border-border bg-card overflow-hidden">
             <div className="p-3 border-b border-border flex items-center gap-2">
               <ListOrdered size={16} className="text-primary" />
-              <h3 className="ava-heading text-lg font-bold">Rallies ({rallies.length})</h3>
+              <h3 className="ava-heading text-lg font-bold">Rallies ({visibleRallies.length}{setFilter != null ? ` · Set ${setFilter}` : ""})</h3>
               <span className="ml-auto text-[11px] text-muted-foreground">placar sincronizado com o vídeo</span>
             </div>
             <div className="divide-y divide-border max-h-[360px] overflow-auto scrollbar-thin">
-              {rallies.length === 0 ? (
+              {visibleRallies.length === 0 ? (
                 <div className="p-5 text-center text-sm text-muted-foreground">Marque os lances e clique em “ponto de…” para encerrar o rally. As ações do ponto são agrupadas automaticamente.</div>
-              ) : rallies.map((r) => (
-                <div key={r.id} data-testid={`rally-${r.number}`} className="p-3">
-                  <div className="flex items-center gap-2">
-                    <span className="font-data text-xs text-muted-foreground w-10">#{r.number}</span>
-                    <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-bold", r.winner === "nos" ? "bg-primary/15 text-primary" : "bg-foreground/15")}>
-                      <Trophy size={10} className="inline mr-0.5" />{r.winner === "nos" ? (video.equipe_name || "AVA") : (video.opponent || "ADV")}
-                    </span>
-                    <span className="font-data text-xs text-muted-foreground">{r.score_before?.nos ?? 0}-{r.score_before?.adv ?? 0} → <b className="text-foreground">{r.score_after?.nos ?? 0}-{r.score_after?.adv ?? 0}</b></span>
-                    <span className="text-[10px] rounded bg-secondary px-1">Set {r.set_number || 1}</span>
-                    <button data-testid={`rally-play-${r.number}`} onClick={() => r.start_ts != null && playerRef.current?.seekTo(Math.max(0, r.start_ts))} className="ml-auto h-6 w-6 rounded-lg bg-primary/15 flex items-center justify-center text-primary hover:bg-primary/25"><Play size={12} /></button>
-                    <button data-testid={`rally-winner-${r.number}`} onClick={() => changeWinner(r.id, r.winner === "nos" ? "adv" : "nos")} title="Trocar vencedor (recalcula placar)" className="h-6 w-6 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-primary"><Repeat size={12} /></button>
-                    <button data-testid={`rally-export-${r.number}`} onClick={() => exportRally(r)} disabled={!!exporting} title="Exportar clipe do rally com marcações" className="h-6 w-6 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-primary disabled:opacity-40"><Film size={12} /></button>
-                    <button data-testid={`rally-remove-${r.number}`} onClick={() => setRemoveRally(r)} title="Remover ponto (preserva vídeo e análise)" className="h-6 w-6 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-primary"><Trash2 size={12} /></button>
-                  </div>
-                  <div className="flex flex-wrap gap-1 mt-1.5 pl-10">
-                    {(r.actions || []).map((a) => (
-                      <button key={a.id} onClick={() => selectAction(a)} className="rounded bg-secondary/60 px-1.5 py-0.5 text-[10px] hover:bg-secondary">
-                        {a.fundamento_name}{a.phase ? ` · ${a.phase}` : ""}{a.team === "adv" ? " (adv)" : ""}
-                      </button>
-                    ))}
-                    {(r.actions || []).length === 0 && <span className="text-[11px] text-muted-foreground">sem ações vinculadas</span>}
-                  </div>
-                </div>
+              ) : visibleRallies.map((r) => (
+                <RallyRow key={r.id} r={r} teamName={teamName} time={time} setCount={setCount} exporting={exporting}
+                  onPlay={(x) => x.start_ts != null && playerRef.current?.seekTo(Math.max(0, x.start_ts))}
+                  onWinner={changeWinner} onExport={exportRally} onRemove={setRemoveRally} onSelectAction={selectAction} onEdit={onEditRally} />
               ))}
             </div>
           </div>
         </div>
       </div>
+      <SetRulesDialog open={rulesOpen} rules={match ? { sets_to_win: match.sets_to_win, set_rules: match.set_rules } : null} onClose={() => setRulesOpen(false)} onSave={saveRules} />
       <RemovePointDialog rally={removeRally} teamName={teamName} onClose={() => setRemoveRally(null)} onConfirm={confirmRemovePoint} />
     </Layout>
   );

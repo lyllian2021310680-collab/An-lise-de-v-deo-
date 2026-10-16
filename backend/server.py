@@ -8,6 +8,7 @@ import csv
 import logging
 import requests
 from emergentintegrations.llm.chat import LlmChat, UserMessage
+import match_rules
 from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional, Any, Dict
@@ -155,6 +156,9 @@ class VideoIn(BaseModel):
     season: Optional[str] = None       # temporada (ex: 2026)
     comp_phase: Optional[str] = None   # fase da competição (ex: Fase de grupos, Semifinal)
     analysis_model: Optional[str] = "B"  # A (K1-K2) | B (K0-K5)
+    venue: Optional[str] = None
+    sets_to_win: Optional[int] = None
+    set_rules: Optional[List[Dict[str, Any]]] = None  # [{target, min_diff}] por set
 
 
 class ActionIn(BaseModel):
@@ -366,7 +370,11 @@ async def create_video(body: VideoIn):
 
 @api_router.put("/videos/{item_id}")
 async def update_video(item_id: str, body: VideoIn):
-    v = await update("videos", item_id, body.model_dump())
+    data = body.model_dump()
+    for k in ("sets_to_win", "set_rules"):
+        if data.get(k) is None:
+            data.pop(k)
+    v = await update("videos", item_id, data)
     # propagate match context to every action of this video (keeps stats consistent)
     await db.actions.update_many({"video_id": item_id}, {"$set": {
         "categoria_id": v.get("categoria_id"), "categoria_name": v.get("categoria_name") or v.get("category"),
@@ -608,42 +616,103 @@ async def suggest_phase(body: PhaseSuggestIn):
     return {"phase": _suggest_phase(body.model, body.fundamento_name, body.team, body.serving_team, body.prior)}
 
 
+async def _match_analysis(video_id: str):
+    video = await db.videos.find_one({"id": video_id}, {"_id": 0}) or {}
+    rallies = await db.rallies.find({"video_id": video_id, "number": {"$ne": None}}, {"_id": 0}).sort("number", 1).to_list(3000)
+    return rallies, match_rules.analyze(rallies, match_rules.rules_of(video))
+
+
 async def recalc_scores(video_id: str):
-    rallies = await db.rallies.find({"video_id": video_id}, {"_id": 0}).sort("number", 1).to_list(3000)
-    running: Dict[int, Dict[str, int]] = {}
+    _, res = await _match_analysis(video_id)
+    for rid, fields in res["per_rally"].items():
+        await db.rallies.update_one({"id": rid}, {"$set": fields})
+    return res["summary"]
+
+
+class RulesIn(BaseModel):
+    sets_to_win: int
+    set_rules: List[Dict[str, Any]]
+
+
+@api_router.get("/videos/{video_id}/match")
+async def match_summary(video_id: str):
+    return (await _match_analysis(video_id))[1]["summary"]
+
+
+@api_router.put("/videos/{video_id}/rules")
+async def set_match_rules(video_id: str, body: RulesIn):
+    if body.sets_to_win < 1 or not body.set_rules:
+        raise HTTPException(400, "Informe a quantidade de sets para vencer e as regras de cada set")
+    rules = []
+    for i, s in enumerate(body.set_rules, start=1):
+        try:
+            t, d = int(s.get("target")), int(s.get("min_diff") or 0)
+        except (TypeError, ValueError):
+            raise HTTPException(400, f"Set {i}: valores inválidos")
+        if t < 1 or d < 1:
+            raise HTTPException(400, f"Set {i}: pontuação e diferença mínima devem ser maiores que zero")
+        rules.append({"target": t, "min_diff": d})
+    if len(rules) < body.sets_to_win:
+        raise HTTPException(400, "Configure pelo menos tantos sets quanto os necessários para vencer")
+    await update("videos", video_id, {"sets_to_win": body.sets_to_win, "set_rules": rules})
+    return await recalc_scores(video_id)
+
+
+@api_router.post("/videos/{video_id}/apply-proposed-sets")
+async def apply_proposed_sets(video_id: str):
+    rallies, res = await _match_analysis(video_id)
+    moved = 0
     for r in rallies:
-        if r.get("number") is None:
-            continue
-        s = r.get("set_number") or 1
-        cur = running.setdefault(s, {"nos": 0, "adv": 0})
-        before = dict(cur)
-        w = r.get("winner")
-        if w == "nos":
-            cur["nos"] += 1
-        elif w == "adv":
-            cur["adv"] += 1
-        await db.rallies.update_one({"id": r["id"]}, {"$set": {"score_before": before, "score_after": dict(cur)}})
+        ps = res["per_rally"][r["id"]]["proposed_set"]
+        if not r.get("set_manual") and ps != int(r.get("set_number") or 1):
+            await db.rallies.update_one({"id": r["id"]}, {"$set": {"set_number": ps}})
+            await db.actions.update_many({"rally_id": r["id"]}, {"$set": {"set_number": ps}})
+            moved += 1
+    summary = await recalc_scores(video_id)
+    return {**summary, "moved": moved}
+
+
+@api_router.put("/rallies/{item_id}")
+async def edit_rally(item_id: str, payload: Dict[str, Any]):
+    r = await db.rallies.find_one({"id": item_id}, {"_id": 0})
+    if not r:
+        raise HTTPException(404, "Rally não encontrado")
+    upd = {k: payload[k] for k in ("start_ts", "end_ts", "note") if k in payload}
+    if upd.get("start_ts") is not None and upd.get("end_ts") is not None and float(upd["start_ts"]) > float(upd["end_ts"]):
+        raise HTTPException(400, "O início do rali deve ser anterior ao fim")
+    if payload.get("set_number"):
+        upd["set_number"] = int(payload["set_number"])
+        upd["set_manual"] = True
+        await db.actions.update_many({"rally_id": item_id}, {"$set": {"set_number": upd["set_number"]}})
+    if "set_manual" in payload and "set_number" not in payload:
+        upd["set_manual"] = bool(payload["set_manual"])
+    await update("rallies", item_id, upd)
+    await recalc_scores(r["video_id"])
+    return await db.rallies.find_one({"id": item_id}, {"_id": 0})
 
 
 @api_router.post("/rallies/close-point")
 async def close_point(payload: Dict[str, Any]):
     video_id = payload.get("video_id")
-    winner = payload.get("winner")            # nos | adv
-    set_number = payload.get("set_number") or 1
+    winner = payload.get("winner")            # nos | adv | pendente
     serving_team = payload.get("serving_team")
-    if not video_id or winner not in ("nos", "adv"):
-        raise HTTPException(400, "Informe video_id e o vencedor (nos/adv)")
+    if not video_id or winner not in ("nos", "adv", "pendente"):
+        raise HTTPException(400, "Informe video_id e o vencedor (nos/adv/pendente)")
+    current_set = (await _match_analysis(video_id))[1]["summary"]["current_set"]
+    set_number = int(payload.get("set_number") or current_set)
+    set_manual = set_number != current_set
     open_actions = await db.actions.find({"video_id": video_id, "rally_id": None, "detached": {"$ne": True}}, {"_id": 0}).sort("timestamp", 1).to_list(3000)
     last = await db.rallies.find_one({"video_id": video_id, "number": {"$ne": None}}, {"_id": 0}, sort=[("number", -1)])
     number = (last.get("number", 0) if last else 0) + 1
     ts = [a.get("timestamp", 0) for a in open_actions]
     rally = await insert("rallies", {
-        "video_id": video_id, "number": number, "set_number": int(set_number), "winner": winner,
+        "video_id": video_id, "number": number, "set_number": set_number, "set_manual": set_manual, "winner": winner,
         "serving_team": serving_team, "start_ts": min(ts) if ts else None, "end_ts": max(ts) if ts else None,
         "action_ids": [a["id"] for a in open_actions], "situation": None, "label": f"Rally {number}",
     })
     if open_actions:
         await db.actions.update_many({"id": {"$in": [a["id"] for a in open_actions]}}, {"$set": {"rally_id": rally["id"]}})
+        await db.actions.update_many({"id": {"$in": [a["id"] for a in open_actions]}, "set_number": None}, {"$set": {"set_number": set_number}})
     await recalc_scores(video_id)
     return await db.rallies.find_one({"id": rally["id"]}, {"_id": 0})
 
@@ -653,7 +722,9 @@ async def set_rally_winner(item_id: str, payload: Dict[str, Any]):
     r = await db.rallies.find_one({"id": item_id}, {"_id": 0})
     if not r:
         raise HTTPException(404, "Rally não encontrado")
-    await db.rallies.update_one({"id": item_id}, {"$set": {"winner": payload.get("winner")}})
+    if payload.get("winner") not in ("nos", "adv", "pendente"):
+        raise HTTPException(400, "Vencedor inválido (nos/adv/pendente)")
+    await db.rallies.update_one({"id": item_id}, {"$set": {"winner": payload.get("winner"), "winner_manual": True}})
     await recalc_scores(r["video_id"])
     return await db.rallies.find_one({"id": item_id}, {"_id": 0})
 
@@ -1208,7 +1279,10 @@ AI_SYSTEM = (
     "(5) se houver poucos registros (menos de ~15 ações relevantes) ou dados insuficientes, declare essa limitação e evite conclusões; "
     "(6) ao comparar períodos/categorias/treinos, aponte diferenças sem afirmar que foram causadas por um único fator; "
     "(7) finalize com sugestões de aspectos a investigar nos treinamentos, ligadas aos dados. "
-    "Use subtítulos curtos e listas. Não invente dados que não estão no resumo."
+    "Use subtítulos curtos e listas. Não invente dados que não estão no resumo. "
+    "Sobre placar e sets: use SOMENTE as regras configuradas pelo treinador em 'regras_por_set' (pontuação-alvo 'target' "
+    "e diferença mínima 'min_diff' de cada set, e 'sets_para_vencer'); um set só termina quando uma equipe atinge o alvo "
+    "E abre a diferença mínima. Nunca assuma regras fixas (25/15) se a configuração for outra; aponte ralis pendentes de revisão."
 )
 
 
@@ -1230,6 +1304,16 @@ async def ai_analyze(body: AIQuery):
             payload["evolucao_atleta"] = (await athlete_summary(f["athlete_id"]))["evolucao"]
         except Exception:
             pass
+    vids = f.get("video_ids") or ([f["video_id"]] if f.get("video_id") else [])
+    partidas = []
+    for vid in vids[:10]:
+        v = await db.videos.find_one({"id": vid}, {"_id": 0, "title": 1}) or {}
+        s = await match_summary(vid)
+        partidas.append({"partida": v.get("title"), "sets_para_vencer": s["sets_to_win"],
+                         "regras_por_set": s["set_rules"], "sets": s["sets"], "sets_vencidos": s["sets_won"],
+                         "vencedor_partida": s["match_winner"], "ralis_para_revisao": s["review_count"]})
+    if partidas:
+        payload["placar_e_regras_das_partidas"] = partidas
     import json as _json
     context = (
         "RESUMO ESTATÍSTICO (dados reais registrados):\n"

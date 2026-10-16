@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { createVideo, uploadFile, getEquipes, getCategorias } from "@/lib/api";
+import { SetRulesEditor, defaultRules } from "@/components/SetRulesEditor";
 import { extractYouTubeId } from "@/components/VideoPlayer";
 import { Youtube, Upload, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,7 @@ export default function AddVideo() {
   const [saving, setSaving] = useState(false);
   const [equipes, setEquipes] = useState([]);
   const [categorias, setCategorias] = useState([]);
+  const [rules, setRules] = useState(defaultRules(3));
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -38,12 +40,13 @@ export default function AddVideo() {
   const submit = async () => {
     if (!form.title.trim()) return toast.error("Informe o nome da partida");
     if (!form.categoria_id) return toast.error("Selecione a categoria da partida");
+    if (rules.set_rules.some((s) => !(s.target >= 1) || !(s.min_diff >= 1))) return toast.error("Preencha a pontuação e a diferença mínima de todos os sets");
     setSaving(true);
     try {
       const equipe = equipes.find((e) => e.id === form.equipe_id);
       const categoria = categorias.find((c) => c.id === form.categoria_id);
       let payload = {
-        ...form, team: equipe?.name || "AVA",
+        ...form, ...rules, team: equipe?.name || "AVA",
         equipe_name: equipe?.name || "AVA", categoria_name: categoria?.name || null,
         category: categoria?.name || null, status: "pendente",
       };
@@ -119,6 +122,12 @@ export default function AddVideo() {
             <Field label="Fase da competição"><input data-testid="input-phase" value={form.comp_phase} onChange={(e) => set("comp_phase", e.target.value)} placeholder="Ex: Fase de grupos, Semifinal" className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary/60" /></Field>
             <Field label="Temporada"><input data-testid="input-season" value={form.season} onChange={(e) => set("season", e.target.value)} placeholder="Ex: 2026" className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary/60" /></Field>
             <Field label="Data"><input data-testid="input-date" type="date" value={form.match_date} onChange={(e) => set("match_date", e.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary/60" /></Field>
+            <Field label="Local"><input data-testid="input-venue" value={form.venue || ""} onChange={(e) => set("venue", e.target.value)} placeholder="Ex: Ginásio Municipal" className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary/60" /></Field>
+          </div>
+
+          <div className="rounded-xl border border-border p-4">
+            <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-primary">Regras de pontuação dos sets</div>
+            <SetRulesEditor value={rules} onChange={setRules} />
           </div>
 
           <button data-testid="submit-video" disabled={saving} onClick={submit} className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-primary py-3 text-sm font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-60">

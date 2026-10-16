@@ -128,6 +128,10 @@ export const setRallyWinner = (id, winner) => client.put(`/rallies/${id}/winner`
 export const removePoint = (id, body) => client.post(`/rallies/${id}/remove-point`, body).then((r) => r.data);
 export const reattachAction = (id) => client.patch(`/actions/${id}/attach`).then((r) => r.data);
 export const setVideoOriginal = (id, storage_path) => client.patch(`/videos/${id}/original`, { storage_path }).then((r) => r.data);
+export const getMatch = (videoId) => client.get(`/videos/${videoId}/match`).then((r) => r.data);
+export const saveMatchRules = (videoId, body) => client.put(`/videos/${videoId}/rules`, body).then((r) => r.data);
+export const applyProposedSets = (videoId) => client.post(`/videos/${videoId}/apply-proposed-sets`).then((r) => r.data);
+export const editRally = (id, body) => client.put(`/rallies/${id}`, body).then((r) => r.data);
 export const getRalliesFull = (videoId) => client.get(`/videos/${videoId}/rallies-full`).then((r) => r.data);
 
 export default client;

@@ -1,12 +1,13 @@
 import { Flag } from "lucide-react";
 
-export const Scoreboard = ({ home = "AVA", away = "Adversário", score = { nos: 0, adv: 0 }, set = 1, serving, onServe, compact = false }) => {
+export const Scoreboard = ({ home = "AVA", away = "Adversário", score = { nos: 0, adv: 0 }, set = 1, rule, serving, onServe, compact = false }) => {
   return (
     <div data-testid="scoreboard" className="inline-flex items-stretch overflow-hidden rounded-xl border border-border bg-gradient-to-b from-black/60 to-black/80 shadow-lg select-none">
       <Team name={home} side="nos" value={score.nos} serving={serving === "nos"} onServe={onServe} />
       <div className="flex flex-col items-center justify-center px-3 py-1.5 bg-primary/90 text-primary-foreground">
         <span className="text-[9px] font-bold uppercase tracking-widest leading-none opacity-90">Set</span>
         <span className="font-data text-lg font-extrabold leading-none" data-testid="scoreboard-set">{set}</span>
+        {rule && <span className="text-[8px] font-semibold leading-none opacity-90 mt-0.5" data-testid="scoreboard-rule">até {rule.target} +{rule.min_diff}</span>}
       </div>
       <Team name={away} side="adv" value={score.adv} serving={serving === "adv"} onServe={onServe} />
     </div>
