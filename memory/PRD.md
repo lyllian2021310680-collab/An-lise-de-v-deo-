@@ -64,3 +64,14 @@ viver dentro do site principal dos atletas.
 
 ## Iteração 3 (2026-06)
 - Relatórios: botão "Relatório completo (PDF)" percorre todas as abas (Geral, Recepção, Por Formação — uma seção por formação com dados, Mapa de Calor, Comparação se houver resultado) e gera um único PDF com títulos de seção e paginação. "PDF da aba" mantém a exportação da aba atual.
+
+## Iteração 4 (2026-06) — Regras de pontuação por set + compilações
+- Regras configuráveis por partida: sets para vencer (melhor de 3/5/outro), pontuação-alvo e diferença mínima POR set (tie-break independente), modelos 25/21/18 + "aplicar a todos", adicionar/remover sets. Em /adicionar e no diálogo "Regras dos sets" da análise.
+- Motor `backend/match_rules.py`: fim de set = alvo E diferença mínima; set atual automático no "ponto de…"; vencedor da partida; resultado "Pendente". Mudar regras recalcula placar/encerramentos e SINALIZA ralis que mudariam de set (não move sozinho) → "Aplicar divisão proposta", "Mover"/"Manter" por rali. Edição de início/fim e set de cada rali.
+- Endpoints: GET /api/videos/{id}/match, PUT /api/videos/{id}/rules, POST /api/videos/{id}/apply-proposed-sets, PUT /api/rallies/{id}. IA recebe regras e placar por set.
+- Compilação em vídeo (navegador, MediaRecorder): junta lances por fundamento (passe, bloqueio, ataque…), equipe ou individual, tudo em um vídeo ou um por fundamento, com título, legendas e marcações. Na Análise, Dossiê do atleta e Relatórios (respeita filtros). YouTube exige arquivo original anexado.
+
+## Backlog
+- P1: Detecção automática de ralis/ações pela IA a partir do vídeo (spec seções 3, 5, 11, 13, 17) — não implementado.
+- P1: Dividir/unir ralis; histórico de alterações; distinção IA × confirmado.
+- P2: Compilação renderizada no servidor (ffmpeg) para não depender da aba aberta.

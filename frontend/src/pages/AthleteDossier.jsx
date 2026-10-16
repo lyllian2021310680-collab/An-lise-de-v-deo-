@@ -108,7 +108,7 @@ export default function AthleteDossier() {
       back="/atletas"
       actions={<><button data-testid="dossier-compilation" onClick={() => setCompOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold hover:border-primary/40"><Film size={16} className="text-primary" /> Compilação em vídeo</button><PdfButton targetId="dossier-pdf-root" title={`Dossiê — ${athlete.name}`} subtitle={`${athlete.position_name || "Sem posição"} · Camisa ${athlete.number || "—"}`} filename={`dossie-${athlete.name}`} testid="dossier-export-pdf" /><a data-testid="dossier-export" href={exportCsvUrl({ athlete_id: id })} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold hover:border-primary/40"><Download size={16} /> Exportar CSV</a></>}
     >
-      <CompilationDialog open={compOpen} onClose={() => setCompOpen(false)} actions={actions} videosById={videoById} athletes={[athlete]} funds={fundamentos} classes={classes} fixedAthleteId={athlete.id} />
+      <CompilationDialog open={compOpen} onClose={() => setCompOpen(false)} actions={scopedActions} videosById={videoById} athletes={[athlete]} funds={fundamentos} classes={classes} fixedAthleteId={athlete.id} />
       <Tabs defaultValue="pasta" id="dossier-pdf-root">
         <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="pasta" data-testid="dtab-pasta"><FolderOpen size={15} className="mr-1.5" /> Pasta</TabsTrigger>

@@ -58,7 +58,7 @@ export const CompilationDialog = ({ open, onClose, actions, videosById, athletes
         }
       }
       toast.success("Compilação salva no seu dispositivo", { id: tid });
-    } catch (e) { toast.error(e?.message || "Falha ao gerar a compilação", { id: tid }); }
+    } catch (e) { toast.error(e?.message || "Não foi possível ler um dos vídeos (formato não suportado por este navegador). Tente pelo Chrome ou Edge atualizado.", { id: tid }); }
     finally { setBusy(false); }
   };
 
@@ -72,7 +72,7 @@ export const CompilationDialog = ({ open, onClose, actions, videosById, athletes
         <div className="space-y-4">
           {!fixedAthleteId && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground w-24">Para</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground w-28 shrink-0">Para</span>
               <button data-testid="comp-scope-team" onClick={() => setScope("team")} className={chip(scope === "team")}>Equipe</button>
               <button data-testid="comp-scope-athlete" onClick={() => setScope("athlete")} className={chip(scope === "athlete")}>Individual</button>
               {scope === "athlete" && (
@@ -84,7 +84,7 @@ export const CompilationDialog = ({ open, onClose, actions, videosById, athletes
             </div>
           )}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground w-24">Fundamentos</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground w-28 shrink-0">Fundamentos</span>
             <button data-testid="comp-fund-all" onClick={() => setSelFunds([])} className={chip(selFunds.length === 0)}>Todos</button>
             {usedFunds.map((f) => (
               <button key={f.id} data-testid={`comp-fund-${f.id}`} onClick={() => { setClassId(""); setSelFunds((s) => (s.includes(f.id) ? s.filter((x) => x !== f.id) : [...s, f.id])); }} className={chip(selFunds.includes(f.id))}>
@@ -94,7 +94,7 @@ export const CompilationDialog = ({ open, onClose, actions, videosById, athletes
           </div>
           {selFunds.length === 1 && (
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground w-24">Classificação</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground w-28 shrink-0">Classificação</span>
               <select data-testid="comp-class" value={classId} onChange={(e) => setClassId(e.target.value)} className="rounded-lg border border-border bg-background px-2 py-1.5 text-sm outline-none">
                 <option value="">Todas</option>
                 {classes.filter((c) => c.fundamento_id === selFunds[0]).map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
@@ -102,7 +102,7 @@ export const CompilationDialog = ({ open, onClose, actions, videosById, athletes
             </div>
           )}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground w-24">Arquivos</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground w-28 shrink-0">Arquivos</span>
             <button data-testid="comp-split-one" onClick={() => setSplit("one")} className={chip(split === "one")}>Tudo em um vídeo</button>
             <button data-testid="comp-split-fund" onClick={() => setSplit("fund")} className={chip(split === "fund")}>Um vídeo por fundamento</button>
           </div>

@@ -1,0 +1,38 @@
+{
+  "summary": "Tested the iteration_2 fixes (backend + SetRulesEditor/RallyRow) and the new video compilation feature from start to finish. Backend: 94/95 pytest pass across the full suite, including the new test_iteration3_fixes.py. The only failure: POST /api/videos with sets_to_win=0 plus valid rules returns 200, because the 0 is silently changed to 3. Frontend: the compilation dialog works on Analyze, the athlete dossier and Reports. Scope, athlete, fundamento, classification and split filters all work, and the summary counts, duration, per-fundamento counts, skipped warning and disabled state are correct. Real rendering produced downloads with the 'Compilação salva no seu dispositivo' toast in four cases: 'Tudo em um vídeo' (1 file, 11.9s; title cards plus the right 2s segments with captions, checked frame by frame with ffmpeg), 'Um vídeo por fundamento' (2 files for the athlete), the dossier (Bruno) and Reports (Bloqueio). The single-action clip export and the rally clip export still work.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST/PUT /api/videos", "issue": "sets_to_win=0 with set_rules returns 200 and is saved as 3, because _clean_video_rules uses `data.get('sets_to_win') or 3`. Expected 400. The test passed earlier only when too few rules were sent."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "CompilationDialog / renderCompilation", "issue": "If any source file can't be decoded (here: H.264 mp4 in headless Chromium, which has no proprietary codecs), the whole compilation fails with the generic toast 'Falha ao gerar a compilação'. The error is a DOM Event with no message. Show a clearer message (unsupported format / which video failed), or skip that segment and keep going.", "selector": "[data-testid='comp-generate']", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "AthleteDossier compilation", "issue": "The dialog receives every athlete action and ignores the selected category tab (cat/scopedActions). Users may expect the compilation to follow the category filter.", "affected_selectors": ["[data-testid='dossier-compilation']"]}
+    ],
+    "design_issues": [
+      {"screen": "CompilationDialog", "issues": ["The 'CLASSIFICAÇÃO' label overflows its w-24 width and touches the select (no gap)", "Uses native <select> for comp-athlete/comp-class instead of the shadcn Select"]},
+      {"screen": "AddVideo /adicionar", "issues": ["DATA field uses the browser's native date picker (mm/dd/yyyy) instead of the shadcn Calendar (pre-existing)"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iteration3_fixes.py", "/app/backend/tests/seed_compilation.py", "/app/test_reports/pytest/pytest_results_it3.xml"],
+  "action_items": [
+    "Reject sets_to_win < 1 when it is provided explicitly in POST/PUT /api/videos (don't fall back to 3 when the value is 0)",
+    "Optional: better error message or per-segment skip in renderCompilation when a source can't be decoded",
+    "Optional: pass scopedActions (category filter) to the CompilationDialog in AthleteDossier; fix the classification label width"
+  ],
+  "critical_code_review_comments": [
+    "clipRender: when Chromium has no avc1 support, MediaRecorder 'video/mp4' writes VP9/Opus inside an .mp4 container (seen in headless). In real Chrome avc1 is used, but VP9-in-MP4 may not play in QuickTime/iOS/WhatsApp. Consider preferring webm when the codec isn't avc1. ffmpeg also warns about non-monotonic DTS, which is harmless.",
+    "clipRender: the 'ended' listener added for each segment is never removed. Small leak, and a stale resolve could fire in later segments.",
+    "The compilation renders in real time with a 1.8s title card per fundamento group. That is fine for short clips but slow for large exports; progress feedback is present."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration3_fixes.py", "/app/backend/tests/seed_compilation.py"],
+  "success_rate": {"backend": "99% (94/95)", "frontend": "100% of requested flows (H.264 mp4 decode failure is a headless Chromium limit)"},
+  "seed_data_creation": "Created TEST_Comp videos (mp4 + webm uploads) with 3 actions each, plus 1 rally. All cleaned up afterwards. Note: leftover TEST_Fund/TEST_ARCH_F fundamentos from earlier iterations are still in the DB.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Headless Playwright Chromium cannot decode H.264 mp4 (canPlayType ''), so use a VP8/Opus webm for real render tests (create it with imageio-ffmpeg: pip install imageio-ffmpeg; the binary path comes from imageio_ffmpeg.get_ffmpeg_exe()). seed_compilation.py <file> creates an upload video + 3 actions (Recepção@3 Lucas, Ataque@8 Lucas+Bruno, Bloqueio@14 Bruno, clip ±1s); 'seed_compilation.py cleanup' removes them. Run pytest with REACT_APP_BACKEND_URL exported (pytest.ini adds -n)."
+}

@@ -652,7 +652,7 @@ def _clean_video_rules(data: dict):
         data.pop("sets_to_win", None)
         data.pop("set_rules", None)
         return False
-    stw = data.get("sets_to_win") or 3
+    stw = 3 if data.get("sets_to_win") is None else data["sets_to_win"]
     data["set_rules"] = validate_rules(stw, data.get("set_rules") or match_rules.default_set_rules(stw))
     data["sets_to_win"] = stw
     return True
