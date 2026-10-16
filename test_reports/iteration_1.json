@@ -1,0 +1,33 @@
+{
+  "summary": "First run on verbatim clone of AVA Vôlei Analytics. Backend: existing pytest suite (6 files) run against public URL: 65 passed, 1 skipped. AI /api/ai/analyze answers in Portuguese via the Emergent key (~11s). Frontend: Home stats (4 partidas/9 atletas/19 marcações), nav to Galeria/Atletas/Relatórios/IA/Config all work with no JS page errors. Gallery shows 4 seeded videos. Analyze page loads the player, scoreboard (match-counters), fundamento marker bar, 6 timeline items and the rallies panel. Athletes page shows 6 cards and the dossier opens with Pasta/Evolução/Comparar tabs and Export PDF/CSV. Reports page renders a recharts donut, both PDF buttons and CSV. IA page returns a markdown answer. Add video via YouTube link works: you must pick a Categoria, then it redirects to /analisar/{id}. The test video was deleted afterwards.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/ai/analyze", "issue": "Returns 502 when called concurrently (Emergent key 429 concurrent_request_limit, seen in logs during the parallel xdist pytest run). Environmental, not a code bug. Sequential calls work."},
+      {"endpoint": "/api/stats", "issue": "Stats still list 'TEST_Iter3 Scoring Match' in partidas even though only 4 videos exist. Actions left over from the old pytest runs in the seeded DB are counted. The /api/athletes list also has 3 TEST_ athletes (hidden in the UI because they are inactive), so the Home page says 9 atletas while the Athletes page shows 6 cards."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Gallery/Analyze", "issues": ["Seed YouTube IDs l9I8m9OQKWo and QH2-TGUlwu4 are unavailable: grey placeholder thumbnails (404s in the console) and 'Video unavailable' in the player for 3 of the 4 seeded videos. This is the original seed data, so it is expected for a verbatim clone."]},
+      {"screen": "AddVideo", "issues": ["Date field uses the browser's native date input (mm/dd/yyyy) instead of a shadcn calendar. Same as the original code."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Optional: the 3 TEST_ athletes and the orphan TEST_Iter3 actions in the DB make Home show 9 atletas while the Athletes page shows 6. Clean them up only if the user wants it.",
+    "No functional fixes required. The app works as a verbatim clone."
+  ],
+  "critical_code_review_comments": [
+    "server.py is 1352 lines (>700). Left as-is per the 'no changes' request.",
+    "AI uses model string 'claude-sonnet-5-5'. It works through the Emergent proxy."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (65/65, 1 skipped)", "frontend": "100% of requested flows"},
+  "seed_data_creation": "Created and then deleted the video 'TEST_UI YouTube Add'.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Run pytest with REACT_APP_BACKEND_URL exported. Avoid running AI tests in parallel because of the Emergent concurrency limit. AddVideo requires input-categoria to be selected before submit-video works."
+}
