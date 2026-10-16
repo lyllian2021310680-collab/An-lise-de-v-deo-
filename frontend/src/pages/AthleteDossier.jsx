@@ -3,9 +3,10 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { getAthlete, getActions, getFundamentos, getClassificacoes, getVideos, getAthleteSummary, exportCsvUrl } from "@/lib/api";
 import { formatTime } from "@/lib/format";
-import { User, Play, Download, FolderOpen, TrendingUp, GitCompare } from "lucide-react";
+import { User, Play, Download, FolderOpen, TrendingUp, GitCompare, Film } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PdfButton } from "@/components/PdfButton";
+import { CompilationDialog } from "@/components/CompilationDialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, Radar, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
 
@@ -22,6 +23,7 @@ export default function AthleteDossier() {
   const [cat, setCat] = useState("todas");
   const [cmpA, setCmpA] = useState("");
   const [cmpB, setCmpB] = useState("");
+  const [compOpen, setCompOpen] = useState(false);
 
   useEffect(() => {
     Promise.all([getAthlete(id), getActions({ athlete_id: id }), getFundamentos(), getClassificacoes(), getVideos(), getAthleteSummary(id)])
@@ -104,8 +106,9 @@ export default function AthleteDossier() {
       title={athlete.name}
       subtitle={`${athlete.position_name || "Sem posição"} · Camisa ${athlete.number || "—"} · ${actions.length} ações · ${cats.length} categoria(s)`}
       back="/atletas"
-      actions={<><PdfButton targetId="dossier-pdf-root" title={`Dossiê — ${athlete.name}`} subtitle={`${athlete.position_name || "Sem posição"} · Camisa ${athlete.number || "—"}`} filename={`dossie-${athlete.name}`} testid="dossier-export-pdf" /><a data-testid="dossier-export" href={exportCsvUrl({ athlete_id: id })} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold hover:border-primary/40"><Download size={16} /> Exportar CSV</a></>}
+      actions={<><button data-testid="dossier-compilation" onClick={() => setCompOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold hover:border-primary/40"><Film size={16} className="text-primary" /> Compilação em vídeo</button><PdfButton targetId="dossier-pdf-root" title={`Dossiê — ${athlete.name}`} subtitle={`${athlete.position_name || "Sem posição"} · Camisa ${athlete.number || "—"}`} filename={`dossie-${athlete.name}`} testid="dossier-export-pdf" /><a data-testid="dossier-export" href={exportCsvUrl({ athlete_id: id })} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold hover:border-primary/40"><Download size={16} /> Exportar CSV</a></>}
     >
+      <CompilationDialog open={compOpen} onClose={() => setCompOpen(false)} actions={actions} videosById={videoById} athletes={[athlete]} funds={fundamentos} classes={classes} fixedAthleteId={athlete.id} />
       <Tabs defaultValue="pasta" id="dossier-pdf-root">
         <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="pasta" data-testid="dtab-pasta"><FolderOpen size={15} className="mr-1.5" /> Pasta</TabsTrigger>

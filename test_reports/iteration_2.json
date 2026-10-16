@@ -1,0 +1,38 @@
+{
+  "summary": "Tested the configurable per-set scoring rules end to end. Backend: wrote a new pytest suite, test_iteration2_set_rules.py, with 18 tests, and all 18 pass. They cover rules validation (400/404), default rules, the 18x16 / 18x17 / 19x17 / 20x20 cases, the 'pendente' winner, best-of-3 match winner and flagging of rallies after the match ends, rule changes that flag rallies without moving them, apply-proposed-sets, set_manual keep, set_number edit, time edit (400 when start > end) and winner nos/adv/pendente/invalid. The full suite also passes: 83 passed, 1 skipped (earlier suites did not need changes). Frontend: on /adicionar, the SetRulesEditor format, preset, add/remove set, apply-all and sets-to-win controls work, and the saved rules match GET /match (18/21/15 with diff 3). On /analisar, the rules dialog saves and recalculates, scoreboard-rule updates ('até 3 +2'), set-select moves to set 2 automatically when set 1 closes, and the rally-closes-set badge appears. Pendente counts no point and is flagged for review. Changing rules shows match-review-alert with move/keep buttons. Keep, the rally-winner select, the time editor (the invalid-time toast appears), the set select in the editor, set-chip/all filters and the match-winner badge all work. No JS page errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST/PUT /api/videos", "issue": "sets_to_win and set_rules are not validated on create/update. If set_rules is [{\"min_diff\":2}] (no target), GET /api/videos/{id}/match returns 500 (KeyError in rules_of). sets_to_win=0 silently becomes 3, and target 0 is stored. Reuse the PUT /rules validation in VideoIn."},
+      {"endpoint": "PUT /api/videos/{id}", "issue": "When this changes sets_to_win/set_rules it does not call recalc_scores, so the stored rally fields (closes_set, needs_review, score_after) are stale until the next rally action."},
+      {"endpoint": "PUT /api/rallies/{id}", "issue": "The start > end check only runs when both start_ts and end_ts are in the payload. Sending only start_ts greater than the stored end_ts is accepted."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "SetRulesEditor", "issue": "Clicking 'Melhor de 3' from the default best-of-5 keeps targets 25/25/25. Set 3 is labeled tie-break but keeps target 25 instead of 15. Consider resetting the last set to the tie-break target when the format changes.", "selector": "[data-testid='format-best-of-3']", "priority": "LOW"},
+      {"component": "RallyRow", "issue": "The st/en useState values are initialized once from r.start_ts/end_ts and never re-synced when the rally changes after a reload, so the editor can show stale times.", "selector": "[data-testid^='rally-start-']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Analyze rallies panel", "issues": ["In the narrow right column, rows with the set lock icon plus the 'fim do set' badge wrap the controls (winner select, edit, export, remove) onto a second line. Rows with review buttons also stack 'Manter no set' on its own line. Works, but looks crowded."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iteration2_set_rules.py", "/app/test_reports/pytest/pytest_iter2.xml", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Validate sets_to_win/set_rules in POST/PUT /api/videos (same rules as PUT /rules) to prevent the 500 on /match",
+    "Call recalc_scores after PUT /api/videos when the rules change",
+    "Optional: check start_ts/end_ts in PUT /rallies against the stored values; reset the tie-break target when the format changes in SetRulesEditor; sync RallyRow edit state with props"
+  ],
+  "critical_code_review_comments": [
+    "server.py is 1436 lines (>700). Consider moving the match/rally endpoints into their own router module.",
+    "analyze(): when a rally gets a manual set, the proposed sets of all later rallies restart from that set. Moving rally #1 to set 2 makes rallies #2 and #3 'belong to set 2', and both #1 and #2 show 'fim do set'. This follows logically from the algorithm, but it can surprise users.",
+    "recalc_scores runs one update_one per rally on every point, which is O(n) writes. Use bulk_write for long matches."
+  ],
+  "updated_files": ["/app/backend/tests/test_iteration2_set_rules.py"],
+  "success_rate": {"backend": "100% (18/18 new, 83/83 total, 1 skipped)", "frontend": "100% of requested flows"},
+  "seed_data_creation": "Created TEST_SetRules videos (pytest fixture, soft-deleted) and 'TEST_UI Regras' through the UI (soft-deleted afterwards).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The AddVideo route is /adicionar (not /videos/novo), and input-categoria must be selected. Run pytest with REACT_APP_BACKEND_URL exported and -n 2. A small rules set (target 3) makes UI testing of set closing fast."
+}

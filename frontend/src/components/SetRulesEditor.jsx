@@ -19,7 +19,8 @@ export const SetRulesEditor = ({ value, onChange }) => {
   const emit = (patch) => onChange({ ...value, ...patch });
   const setFormat = (n) => {
     const len = Math.max(n, 2 * n - 1);
-    const next = Array.from({ length: len }, (_, i) => sets[i] || { ...sets[sets.length - 1] });
+    const base = sets.find((s) => s.target !== 15) || sets[0];
+    const next = Array.from({ length: len }, (_, i) => (i === len - 1 && len > 1 ? { target: 15, min_diff: 2 } : { ...(i < sets.length - 1 ? sets[i] : base) }));
     emit({ sets_to_win: n, set_rules: next });
   };
   const patchSet = (i, k, v) => emit({ set_rules: sets.map((s, j) => (j === i ? { ...s, [k]: v === "" ? "" : Number(v) } : s)) });

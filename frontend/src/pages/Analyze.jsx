@@ -13,6 +13,7 @@ import {
 import { MatchSummary } from "@/components/MatchSummary";
 import { RallyRow } from "@/components/RallyRow";
 import { SetRulesDialog } from "@/components/SetRulesDialog";
+import { CompilationDialog } from "@/components/CompilationDialog";
 import { AnnoTimingPanel } from "@/components/AnnoTimingPanel";
 import { RemovePointDialog } from "@/components/RemovePointDialog";
 import { renderClip, renderSourcePath } from "@/lib/clipRender";
@@ -104,6 +105,7 @@ export default function Analyze() {
   const [match, setMatch] = useState(null);
   const [setFilter, setSetFilter] = useState(null);
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [compOpen, setCompOpen] = useState(false);
   const originalInput = useRef(null);
   const clipStop = useRef(null);
   const lastTimeRef = useRef(0);
@@ -384,6 +386,7 @@ export default function Analyze() {
               <button data-testid="attach-original" onClick={() => originalInput.current?.click()} title="Anexe o arquivo da partida para renderizar clipes com marcações" className={cn("inline-flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm font-semibold", video.original_storage_path ? "border-emerald-500/40 text-emerald-500" : "border-border hover:border-primary/40")}><Upload size={15} /> {video.original_storage_path ? "Arquivo anexado" : "Arquivo p/ exportar"}</button>
             </>
           )}
+          <button data-testid="open-compilation" onClick={() => setCompOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold hover:border-primary/40"><Film size={16} className="text-primary" /> Compilação</button>
           <button data-testid="mark-complete" onClick={markComplete} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold hover:border-emerald-500/50"><Check size={16} className="text-emerald-500" /> Concluir análise</button>
         </div>
       </div>
@@ -622,6 +625,7 @@ export default function Analyze() {
           </div>
         </div>
       </div>
+      <CompilationDialog open={compOpen} onClose={() => setCompOpen(false)} actions={actions} videosById={{ [video.id]: { ...video, duration: duration || video.duration } }} athletes={athletes} funds={funds} classes={classes} teamLabel={video.equipe_name || "AVA"} />
       <SetRulesDialog open={rulesOpen} rules={match ? { sets_to_win: match.sets_to_win, set_rules: match.set_rules } : null} onClose={() => setRulesOpen(false)} onSave={saveRules} />
       <RemovePointDialog rally={removeRally} teamName={teamName} onClose={() => setRemoveRally(null)} onConfirm={confirmRemovePoint} />
     </Layout>

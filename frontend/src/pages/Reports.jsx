@@ -4,9 +4,10 @@ import { Layout } from "@/components/Layout";
 import { getActions, getFundamentos, getClassificacoes, getAthletes, getVideos, getPositions, getFormations, getCategorias, compareGroups, exportCsvUrl } from "@/lib/api";
 import { formatTime, pct } from "@/lib/format";
 import { CourtMap } from "@/components/CourtMap";
-import { Download, Play, Filter, GitCompare, FileStack, Loader2 } from "lucide-react";
+import { Download, Play, Filter, GitCompare, FileStack, Loader2, Film } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PdfButton } from "@/components/PdfButton";
+import { CompilationDialog } from "@/components/CompilationDialog";
 import { captureEl, exportPdfSections } from "@/lib/pdf";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -32,6 +33,7 @@ export default function Reports() {
   const [selFormation, setSelFormation] = useState("");
   const [tab, setTab] = useState("geral");
   const [fullBusy, setFullBusy] = useState(false);
+  const [compOpen, setCompOpen] = useState(false);
 
   // comparison state
   const [cmpDim, setCmpDim] = useState("categoria_name");
@@ -164,7 +166,8 @@ export default function Reports() {
 
   return (
     <Layout title="Análises e Relatórios" subtitle="Estatísticas por categoria, formação, mapas de calor e comparações" back="/"
-      actions={<><PdfButton targetId="reports-pdf-root" title="Análises e Relatórios" subtitle={f.video ? videoById[f.video]?.title : "Todas as partidas"} filename="relatorio-ava" testid="reports-export-pdf" label="PDF da aba" /><button data-testid="reports-export-full-pdf" onClick={exportFull} disabled={fullBusy} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-60">{fullBusy ? <Loader2 size={16} className="animate-spin" /> : <FileStack size={16} />} Relatório completo (PDF)</button><a data-testid="reports-export" href={exportCsvUrl(f.video ? { video_id: f.video } : {})} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold hover:border-primary/40"><Download size={16} /> Exportar CSV</a></>}>
+      actions={<><button data-testid="reports-compilation" onClick={() => setCompOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold hover:border-primary/40"><Film size={16} className="text-primary" /> Compilação em vídeo</button><PdfButton targetId="reports-pdf-root" title="Análises e Relatórios" subtitle={f.video ? videoById[f.video]?.title : "Todas as partidas"} filename="relatorio-ava" testid="reports-export-pdf" label="PDF da aba" /><button data-testid="reports-export-full-pdf" onClick={exportFull} disabled={fullBusy} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-60">{fullBusy ? <Loader2 size={16} className="animate-spin" /> : <FileStack size={16} />} Relatório completo (PDF)</button><a data-testid="reports-export" href={exportCsvUrl(f.video ? { video_id: f.video } : {})} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold hover:border-primary/40"><Download size={16} /> Exportar CSV</a></>}>
+      <CompilationDialog open={compOpen} onClose={() => setCompOpen(false)} actions={filtered} videosById={videoById} athletes={athletes} funds={funds} classes={classes} />
       <Tabs value={tab} onValueChange={setTab} id="reports-pdf-root">
         <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="geral" data-testid="rtab-geral">Geral</TabsTrigger>

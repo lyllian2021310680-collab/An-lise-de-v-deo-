@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Play, Trophy, Film, Trash2, Pencil, AlertTriangle, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatTime } from "@/lib/format";
@@ -9,6 +9,7 @@ export const RallyRow = ({ r, teamName, time, setCount, exporting, onPlay, onWin
   const [edit, setEdit] = useState(false);
   const [st, setSt] = useState(r.start_ts ?? "");
   const [en, setEn] = useState(r.end_ts ?? "");
+  useEffect(() => { setSt(r.start_ts ?? ""); setEn(r.end_ts ?? ""); }, [r.start_ts, r.end_ts]);
   const winCls = r.winner === "nos" ? "bg-primary/15 text-primary" : r.winner === "adv" ? "bg-foreground/15" : "bg-amber-500/15 text-amber-500";
   const save = () => { onEdit(r, { start_ts: st === "" ? null : Number(st), end_ts: en === "" ? null : Number(en) }); setEdit(false); };
   return (
@@ -21,7 +22,7 @@ export const RallyRow = ({ r, teamName, time, setCount, exporting, onPlay, onWin
         <span className="font-data text-xs text-muted-foreground">{r.score_before?.nos ?? 0}-{r.score_before?.adv ?? 0} → <b className="text-foreground">{r.score_after?.nos ?? 0}-{r.score_after?.adv ?? 0}</b></span>
         <span className="text-[10px] rounded bg-secondary px-1">Set {r.set_number || 1}{r.set_manual && <Lock size={8} className="inline ml-0.5" />}</span>
         {r.closes_set && <span data-testid={`rally-closes-set-${r.number}`} className="text-[10px] rounded bg-emerald-500/15 text-emerald-500 px-1 font-semibold">fim do set</span>}
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex shrink-0 items-center gap-1">
           <button data-testid={`rally-play-${r.number}`} onClick={() => onPlay(r)} className="h-6 w-6 rounded-lg bg-primary/15 flex items-center justify-center text-primary hover:bg-primary/25"><Play size={12} /></button>
           <select data-testid={`rally-winner-${r.number}`} value={r.winner || "pendente"} onChange={(e) => onWinner(r.id, e.target.value)} title="Vencedor do rali (recalcula placar)" className="h-6 rounded-lg border border-border bg-background px-1 text-[11px] outline-none">
             <option value="nos">{teamName("nos")}</option><option value="adv">{teamName("adv")}</option><option value="pendente">Pendente</option>

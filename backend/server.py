@@ -362,6 +362,7 @@ async def get_video(item_id: str):
 @api_router.post("/videos")
 async def create_video(body: VideoIn):
     data = body.model_dump()
+    _clean_video_rules(data)
     if data["source_type"] == "youtube" and data.get("youtube_id") and not data.get("thumbnail_url"):
         data["thumbnail_url"] = f"https://img.youtube.com/vi/{data['youtube_id']}/hqdefault.jpg"
     data["is_deleted"] = False
@@ -371,10 +372,10 @@ async def create_video(body: VideoIn):
 @api_router.put("/videos/{item_id}")
 async def update_video(item_id: str, body: VideoIn):
     data = body.model_dump()
-    for k in ("sets_to_win", "set_rules"):
-        if data.get(k) is None:
-            data.pop(k)
+    rules_changed = _clean_video_rules(data)
     v = await update("videos", item_id, data)
+    if rules_changed:
+        await recalc_scores(item_id)
     # propagate match context to every action of this video (keeps stats consistent)
     await db.actions.update_many({"video_id": item_id}, {"$set": {
         "categoria_id": v.get("categoria_id"), "categoria_name": v.get("categoria_name") or v.get("category"),
@@ -629,6 +630,34 @@ async def recalc_scores(video_id: str):
     return res["summary"]
 
 
+def validate_rules(sets_to_win, set_rules):
+    if not sets_to_win or sets_to_win < 1 or not set_rules:
+        raise HTTPException(400, "Informe a quantidade de sets para vencer e as regras de cada set")
+    rules = []
+    for i, s in enumerate(set_rules, start=1):
+        try:
+            t, d = int(s.get("target")), int(s.get("min_diff") or 0)
+        except (TypeError, ValueError, AttributeError):
+            raise HTTPException(400, f"Set {i}: valores inválidos")
+        if t < 1 or d < 1:
+            raise HTTPException(400, f"Set {i}: pontuação e diferença mínima devem ser maiores que zero")
+        rules.append({"target": t, "min_diff": d})
+    if len(rules) < sets_to_win:
+        raise HTTPException(400, "Configure pelo menos tantos sets quanto os necessários para vencer")
+    return rules
+
+
+def _clean_video_rules(data: dict):
+    if data.get("sets_to_win") is None and data.get("set_rules") is None:
+        data.pop("sets_to_win", None)
+        data.pop("set_rules", None)
+        return False
+    stw = data.get("sets_to_win") or 3
+    data["set_rules"] = validate_rules(stw, data.get("set_rules") or match_rules.default_set_rules(stw))
+    data["sets_to_win"] = stw
+    return True
+
+
 class RulesIn(BaseModel):
     sets_to_win: int
     set_rules: List[Dict[str, Any]]
@@ -641,19 +670,7 @@ async def match_summary(video_id: str):
 
 @api_router.put("/videos/{video_id}/rules")
 async def set_match_rules(video_id: str, body: RulesIn):
-    if body.sets_to_win < 1 or not body.set_rules:
-        raise HTTPException(400, "Informe a quantidade de sets para vencer e as regras de cada set")
-    rules = []
-    for i, s in enumerate(body.set_rules, start=1):
-        try:
-            t, d = int(s.get("target")), int(s.get("min_diff") or 0)
-        except (TypeError, ValueError):
-            raise HTTPException(400, f"Set {i}: valores inválidos")
-        if t < 1 or d < 1:
-            raise HTTPException(400, f"Set {i}: pontuação e diferença mínima devem ser maiores que zero")
-        rules.append({"target": t, "min_diff": d})
-    if len(rules) < body.sets_to_win:
-        raise HTTPException(400, "Configure pelo menos tantos sets quanto os necessários para vencer")
+    rules = validate_rules(body.sets_to_win, body.set_rules)
     await update("videos", video_id, {"sets_to_win": body.sets_to_win, "set_rules": rules})
     return await recalc_scores(video_id)
 
@@ -678,7 +695,9 @@ async def edit_rally(item_id: str, payload: Dict[str, Any]):
     if not r:
         raise HTTPException(404, "Rally não encontrado")
     upd = {k: payload[k] for k in ("start_ts", "end_ts", "note") if k in payload}
-    if upd.get("start_ts") is not None and upd.get("end_ts") is not None and float(upd["start_ts"]) > float(upd["end_ts"]):
+    st = upd["start_ts"] if "start_ts" in upd else r.get("start_ts")
+    en = upd["end_ts"] if "end_ts" in upd else r.get("end_ts")
+    if st is not None and en is not None and float(st) > float(en):
         raise HTTPException(400, "O início do rali deve ser anterior ao fim")
     if payload.get("set_number"):
         upd["set_number"] = int(payload["set_number"])
