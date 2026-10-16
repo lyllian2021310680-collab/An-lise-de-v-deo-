@@ -1,0 +1,128 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --background: 210 40% 98%;
+        --foreground: 222 47% 11%;
+        --card: 0 0% 100%;
+        --card-foreground: 222 47% 11%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 222 47% 11%;
+        --primary: 0 72% 51%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 210 40% 96%;
+        --secondary-foreground: 222 47% 11%;
+        --muted: 210 40% 96%;
+        --muted-foreground: 215 16% 47%;
+        --accent: 0 72% 96%;
+        --accent-foreground: 0 72% 40%;
+        --destructive: 0 72% 51%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 214 32% 91%;
+        --input: 214 32% 91%;
+        --ring: 0 72% 51%;
+        --chart-1: 357 93% 47%;
+        --chart-2: 217 91% 60%;
+        --chart-3: 160 84% 39%;
+        --chart-4: 38 92% 50%;
+        --chart-5: 271 81% 56%;
+        --radius: 0.75rem;
+    }
+    .dark {
+        --background: 240 9% 4%;
+        --foreground: 240 5% 96%;
+        --card: 240 10% 8%;
+        --card-foreground: 240 5% 96%;
+        --popover: 240 10% 7%;
+        --popover-foreground: 240 5% 96%;
+        --primary: 357 93% 47%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 240 10% 14%;
+        --secondary-foreground: 240 5% 96%;
+        --muted: 240 10% 14%;
+        --muted-foreground: 240 5% 65%;
+        --accent: 240 10% 16%;
+        --accent-foreground: 0 0% 100%;
+        --destructive: 0 72% 45%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 240 10% 17%;
+        --input: 240 10% 17%;
+        --ring: 357 93% 47%;
+        --chart-1: 357 93% 55%;
+        --chart-2: 217 91% 60%;
+        --chart-3: 160 84% 45%;
+        --chart-4: 38 92% 55%;
+        --chart-5: 271 81% 65%;
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+    body {
+        @apply bg-background text-foreground;
+        font-family: 'Inter', system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+    }
+    .font-display {
+        font-family: 'Barlow Condensed', sans-serif;
+    }
+    .font-data {
+        font-family: 'JetBrains Mono', monospace;
+    }
+}
+
+@layer utilities {
+    .ava-heading {
+        font-family: 'Barlow Condensed', sans-serif;
+        letter-spacing: -0.01em;
+    }
+    .ava-grid-bg {
+        background-image:
+            radial-gradient(circle at 15% 15%, hsl(var(--primary) / 0.08), transparent 40%),
+            linear-gradient(to right, hsl(var(--border) / 0.4) 1px, transparent 1px),
+            linear-gradient(to bottom, hsl(var(--border) / 0.4) 1px, transparent 1px);
+        background-size: 100% 100%, 42px 42px, 42px 42px;
+    }
+    .ava-red-glow {
+        box-shadow: 0 0 0 1px hsl(var(--primary) / 0.4), 0 10px 40px -12px hsl(var(--primary) / 0.45);
+    }
+    .scrollbar-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 8px; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+}
+
+@keyframes ava-fade-up {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.ava-fade-up { animation: ava-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Respostas da IA formatadas (markdown) */
+.prose-ava > * + * { margin-top: 0.75rem; }
+.prose-ava h1, .prose-ava h2, .prose-ava h3, .prose-ava h4 { font-family: "Barlow Condensed", sans-serif; font-weight: 800; line-height: 1.15; color: hsl(var(--foreground)); }
+.prose-ava h1 { font-size: 1.6rem; }
+.prose-ava h2 { font-size: 1.35rem; padding-bottom: 0.3rem; border-bottom: 1px solid hsl(var(--border)); margin-top: 1.4rem; }
+.prose-ava h3 { font-size: 1.15rem; color: hsl(var(--primary)); margin-top: 1.1rem; }
+.prose-ava h4 { font-size: 1rem; }
+.prose-ava strong { font-weight: 700; color: hsl(var(--foreground)); }
+.prose-ava ul, .prose-ava ol { padding-left: 1.25rem; }
+.prose-ava ul { list-style: disc; }
+.prose-ava ol { list-style: decimal; }
+.prose-ava li + li { margin-top: 0.3rem; }
+.prose-ava li::marker { color: hsl(var(--primary)); }
+.prose-ava blockquote { border-left: 3px solid hsl(var(--primary)); padding: 0.4rem 0.9rem; background: hsl(var(--secondary) / 0.5); border-radius: 0 8px 8px 0; }
+.prose-ava code { font-family: "JetBrains Mono", monospace; font-size: 0.85em; background: hsl(var(--secondary)); padding: 0.1rem 0.35rem; border-radius: 4px; }
+.prose-ava hr { border-color: hsl(var(--border)); margin: 1.2rem 0; }
+.prose-ava table { width: 100%; border-collapse: collapse; font-size: 0.85rem; display: block; overflow-x: auto; }
+.prose-ava th, .prose-ava td { border: 1px solid hsl(var(--border)); padding: 0.4rem 0.6rem; text-align: left; }
+.prose-ava th { background: hsl(var(--secondary)); font-weight: 700; }
+
+/* Captura para PDF: conteúdo inteiro, sem cortes de rolagem */
+.pdf-mode [class*="max-h-"] { max-height: none !important; overflow: visible !important; }
+.pdf-mode .ava-fade-up { animation: none !important; }

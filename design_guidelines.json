@@ -1,0 +1,165 @@
+{
+  "project_identity": {
+    "brand_name": "AVA - Associação Voleibol Assisense",
+    "app_type": "Hybrid Fullstack Sports Video Analysis Dashboard & Tactical Annotation Tool",
+    "emotional_tone": "Tactical Precision, High-Performance Athletic, Clean & Authoritative",
+    "archetype": "THE PERFORMANCE PRO (Elite Athleticism & Precision)",
+    "description": "Uma plataforma de alta performance visual para análise tática de partidas de voleibol, marcação sobre vídeo, dossiê individual de atletas e geração de relatórios estatísticos da AVA."
+  },
+  "typography": {
+    "headings": {
+      "font_family": "'Barlow Condensed', 'Outfit', 'Chivo', sans-serif",
+      "font_weights": {
+        "hero": "900",
+        "h1": "800",
+        "h2": "700",
+        "h3": "600"
+      },
+      "character_spacing": "tracking-tight sm:tracking-normal",
+      "text_sizes": {
+        "hero": "text-4xl sm:text-5xl lg:text-6xl",
+        "h1": "text-3xl sm:text-4xl",
+        "h2": "text-2xl sm:text-3xl",
+        "h3": "text-xl sm:text-2xl",
+        "h4": "text-lg sm:text-xl"
+      }
+    },
+    "body": {
+      "font_family": "'Inter', 'DM Sans', system-ui, sans-serif",
+      "font_sizes": {
+        "large": "text-lg",
+        "default": "text-base",
+        "small": "text-sm",
+        "micro": "text-xs"
+      }
+    },
+    "monospace_data": {
+      "font_family": "'JetBrains Mono', 'Source Code Pro', monospace",
+      "use_case": "Timestamps, Match clock, Efficiency Percentages, Frame Numbers, Drawing coordinates"
+    }
+  },
+  "colors": {
+    "palette_mode": "Balanced Red & Black Tactical Theme (Dark Mode Default + Light Mode Support)",
+    "dark_theme": {
+      "background_base": "#0A0A0C",
+      "background_card": "#121216",
+      "background_card_hover": "#1A1A22",
+      "surface_border": "#272730",
+      "surface_border_active": "#DC2626",
+      "foreground_text": "#F4F4F5",
+      "foreground_muted": "#A1A1AA",
+      "primary_red": "#E50914",
+      "primary_red_hover": "#F8131E",
+      "primary_red_glow": "rgba(229, 9, 20, 0.25)",
+      "accent_amber": "#F59E0B",
+      "accent_green": "#10B981",
+      "accent_blue": "#3B82F6"
+    },
+    "light_theme": {
+      "background_base": "#F8FAFC",
+      "background_card": "#FFFFFF",
+      "background_card_hover": "#F1F5F9",
+      "surface_border": "#E2E8F0",
+      "surface_border_active": "#DC2626",
+      "foreground_text": "#0F172A",
+      "foreground_muted": "#64748B",
+      "primary_red": "#DC2626",
+      "primary_red_hover": "#B91C1C",
+      "primary_red_glow": "rgba(220, 38, 38, 0.15)",
+      "accent_amber": "#D97706",
+      "accent_green": "#059669",
+      "accent_blue": "#2563EB"
+    },
+    "fundamentos_badges": {
+      "saque": "#3B82F6",
+      "recepcao": "#8B5CF6",
+      "levantamento": "#EC4899",
+      "ataque": "#EF4444",
+      "bloqueio": "#10B981",
+      "defesa": "#F59E0B"
+    },
+    "classificacao_ratings": {
+      "excelente_duplo_positivo": {
+        "symbol": "## / #",
+        "color": "#10B981",
+        "bg_dark": "rgba(16, 185, 129, 0.15)"
+      },
+      "bom_positivo": {
+        "symbol": "+",
+        "color": "#3B82F6",
+        "bg_dark": "rgba(59, 130, 246, 0.15)"
+      },
+      "neutro": {
+        "symbol": "!",
+        "color": "#F59E0B",
+        "bg_dark": "rgba(245, 158, 11, 0.15)"
+      },
+      "negativo": {
+        "symbol": "-",
+        "color": "#F97316",
+        "bg_dark": "rgba(249, 115, 22, 0.15)"
+      },
+      "erro_ponto_adversario": {
+        "symbol": "=",
+        "color": "#EF4444",
+        "bg_dark": "rgba(239, 68, 68, 0.15)"
+      }
+    }
+  },
+  "layout_and_grids": {
+    "spacing_philosophy": "Generous tactical spacing (p-6, p-8 for containers) with zero component collision.",
+    "border_radius": "rounded-xl for cards, rounded-lg for buttons/inputs, rounded-full for status badges and quick pills.",
+    "home_dashboard_grid": "Base grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6. Featured 'Analyze Video' card spans 2 columns with primary red outline glow.",
+    "video_workspace_layout": "Split-screen flex/grid layout: 70% video player & drawing canvas on left, 30% pause-to-mark tagging panel and live timeline log on right. Fully responsive stack for tablets/mobile.",
+    "gallery_grid": "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 with search bar & filter chips sticky header."
+  },
+  "key_components_and_features": {
+    "home_panel": {
+      "header_banner": "Displays 'AVA - Associação Voleibol Assisense' with official badge logo, quick team metrics (Partidas Analisadas, Marcações Totais, Atleta Destaque da Semana), and Theme Switcher.",
+      "action_cards": [
+        {"id": "add_video", "title": "Adicionar Vídeo", "subtitle": "Upload de novo arquivo de jogo ou treino MP4/WebM"},
+        {"id": "gallery", "title": "Galeria de Vídeos", "subtitle": "Biblioteca de partidas com status e busca por data/oponente"},
+        {"id": "athlete_folders", "title": "Pastas dos Atletas", "subtitle": "Dossiê individual por posição e fundamentos"},
+        {"id": "analyze", "title": "Analisar Vídeo", "subtitle": "Workspace de marcação em tempo real e anotações visuais"},
+        {"id": "reports", "title": "Análises e Relatórios", "subtitle": "Estatísticas coletivas, percentuais de eficácia e gráficos"}
+      ]
+    },
+    "video_workspace": {
+      "player": "Custom HTML5 Video Player with Play/Pause, 0.25x/0.5x/1x speed control, Frame-by-frame forward/backward, current timestamp display.",
+      "annotation_canvas": "Canvas overlay with drawing modes: Seta (Arrow), Texto (Text), Circulo/Forma (Shape), Trajetória da Bola (Curved Trajectory Path). Supports color picker (Red, Yellow, Green, White), line weight selector, and clear/undo.",
+      "pause_to_mark_panel": "Instant tag registration form: Timestamp auto-populated, Select Fundamento (Saque, Recepção, Levantamento, Ataque, Bloqueio, Defesa), Select Classificação (##, +, !, -, =), Select Atleta (Number & Name), and Tag Note.",
+      "tag_timeline_feed": "Scrollable list of registered tags synced to video playback with clickable timestamps to seek directly."
+    },
+    "video_gallery": {
+      "filters": "Search by title/opponent, Filter by Status (Todos, Pendente, Em Análise, Concluído), Sort by Date.",
+      "video_card": "Video thumbnail with play overlay, duration badge, match title, competition, status badge (Pendente = Amber, Em Análise = Blue, Concluído = Green), tag count."
+    },
+    "athlete_folders": {
+      "roster_list": "Filter by position (Ponteiro, Oposto, Central, Levantador, Líbero). Athlete card with photo, jersey number, name, position, total tags count.",
+      "profile_dossier": "Individual statistics modal/page showing radar chart of fundamentals, percentage of positive actions, video clips tagged with this athlete, and coach notes."
+    },
+    "reports_and_charts": {
+      "collective_stats": "Eficácia de Ataque (%), Eficiência de Saque, Índice de Recepção Perfeita (A+B), Pontos de Bloqueio por Set.",
+      "visualizations": "Pie charts for Fundamentos distribution, Bar charts for Classificação breakdown by athlete, Recharts responsive containers.",
+      "export_panel": "Export buttons for PDF Report, CSV Raw Data, and High-Res PNG Chart image."
+    },
+    "configurable_settings": {
+      "custom_fundamentos": "Ability to add/edit custom fundamentos and default keyboard shortcuts (e.g., 'S' for Saque, 'A' for Ataque).",
+      "custom_classifications": "Configure rating scale labels and colors."
+    }
+  },
+  "image_urls": {
+    "volleyball_spiking_hero": "https://images.unsplash.com/photo-1790595739201-76745c4e1242?crop=entropy&cs=srgb&fm=jpg&q=85",
+    "volleyball_net_action": "https://images.unsplash.com/photo-1790599313767-c1d45a65fe4f?crop=entropy&cs=srgb&fm=jpg&q=85",
+    "volleyball_blocking_match": "https://images.unsplash.com/photo-1790599313508-7b8cf4b89d66?crop=entropy&cs=srgb&fm=jpg&q=85",
+    "volleyball_team_court": "https://images.pexels.com/photos/6203581/pexels-photo-6203581.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "volleyball_indoor_action": "https://images.pexels.com/photos/6203531/pexels-photo-6203531.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+  },
+  "instructions_to_main_agent": {
+    "code_language": "JavaScript (.js and .jsx files). Do NOT output TypeScript .tsx files.",
+    "testing_attributes": "EVERY interactive element (button, link, input, tab, card, modal toggle, playback button, canvas tool button) MUST include a unique data-testid attribute in kebab-case (e.g., data-testid='nav-home-button', data-testid='tag-fundamento-saque-btn', data-testid='video-play-pause-btn').",
+    "no_transparent_overlays": "Dropdowns, modals, and tooltips MUST have solid/semi-solid opaque backgrounds with backdrop-blur (e.g., bg-slate-900/95 or bg-white/95) to prevent text overlap readability issues.",
+    "accessibility": "Ensure text contrast ratio meets WCAG AA standard. Use aria-labels for video control buttons and drawing tool icons.",
+    "state_persistence": "Store videos, athlete list, tags, custom settings, and reports in React state with localStorage pre-filled with high-quality realistic AVA Volleyball mock data so the app feels completely alive out of the box."
+  }
+}
