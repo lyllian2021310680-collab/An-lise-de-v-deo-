@@ -780,6 +780,118 @@ async def reattach_action(item_id: str):
     return await update("actions", item_id, {"detached": False})
 
 
+async def renumber_chrono(video_id: str):
+    rallies = await db.rallies.find({"video_id": video_id, "number": {"$ne": None}}, {"_id": 0}).sort("number", 1).to_list(3000)
+    last, keyed = 0.0, []
+    for i, r in enumerate(rallies):
+        k = r.get("start_ts") if r.get("start_ts") is not None else r.get("end_ts")
+        last = float(k) if k is not None else last
+        keyed.append((last, i, r))
+    keyed.sort(key=lambda x: (x[0], x[1]))
+    for n, (_, _, r) in enumerate(keyed, start=1):
+        upd = {"number": n}
+        if (r.get("label") or "").startswith("Rally "):
+            upd["label"] = f"Rally {n}"
+        await db.rallies.update_one({"id": r["id"]}, {"$set": upd})
+
+
+async def _fit_new_rally_set(video_id: str, rally_id: str):
+    await recalc_scores(video_id)
+    r = await db.rallies.find_one({"id": rally_id}, {"_id": 0})
+    if r and r.get("proposed_set") and r["proposed_set"] != r.get("set_number"):
+        await db.rallies.update_one({"id": rally_id}, {"$set": {"set_number": r["proposed_set"]}})
+        await db.actions.update_many({"rally_id": rally_id}, {"$set": {"set_number": r["proposed_set"]}})
+    await recalc_scores(video_id)
+
+
+@api_router.post("/rally-suggestions/{sid}/accept")
+async def accept_suggestion(sid: str, payload: Dict[str, Any]):
+    s = await db.rally_suggestions.find_one({"id": sid}, {"_id": 0})
+    if not s or s["status"] != "pending":
+        raise HTTPException(404, "Sugestão não encontrada")
+    st = float(payload.get("start_ts", s["start_ts"]))
+    en = float(payload.get("end_ts", s["end_ts"]))
+    if st >= en:
+        raise HTTPException(400, "O início do rali deve ser anterior ao fim")
+    winner = payload.get("winner") or (s["winner_guess"] if s["winner_guess"] in ("nos", "adv") and s["confidence"] >= 0.6 else "pendente")
+    if winner not in ("nos", "adv", "pendente"):
+        raise HTTPException(400, "Vencedor inválido")
+    video_id = s["video_id"]
+    prev = await db.rallies.find_one({"video_id": video_id, "number": {"$ne": None}, "start_ts": {"$lte": st}}, {"_id": 0}, sort=[("start_ts", -1)])
+    acts = await db.actions.find({"video_id": video_id, "rally_id": None, "detached": {"$ne": True}, "timestamp": {"$gte": st, "$lte": en}}, {"_id": 0}).to_list(500)
+    rally = await insert("rallies", {
+        "video_id": video_id, "number": 10 ** 6, "set_number": (prev or {}).get("set_number") or 1, "set_manual": False,
+        "winner": winner, "serving_team": s.get("serving_team"), "start_ts": st, "end_ts": en,
+        "action_ids": [a["id"] for a in acts], "situation": None, "label": "Rally ", "source": "ia",
+        "ai_confidence": s["confidence"], "ai_reason": s.get("reason"), "ai_winner_guess": s["winner_guess"],
+        "winner_manual": winner != s["winner_guess"],
+    })
+    if acts:
+        await db.actions.update_many({"id": {"$in": [a["id"] for a in acts]}}, {"$set": {"rally_id": rally["id"]}})
+    await db.rally_suggestions.update_one({"id": sid}, {"$set": {"status": "accepted", "rally_id": rally["id"]}})
+    await renumber_chrono(video_id)
+    await _fit_new_rally_set(video_id, rally["id"])
+    return await db.rallies.find_one({"id": rally["id"]}, {"_id": 0})
+
+
+@api_router.post("/rally-suggestions/{sid}/reject")
+async def reject_suggestion(sid: str):
+    await db.rally_suggestions.update_one({"id": sid}, {"$set": {"status": "rejected"}})
+    return {"ok": True}
+
+
+@api_router.post("/rallies/{item_id}/split")
+async def split_rally(item_id: str, payload: Dict[str, Any]):
+    r = await db.rallies.find_one({"id": item_id}, {"_id": 0})
+    if not r or r.get("number") is None:
+        raise HTTPException(404, "Rally não encontrado")
+    if r.get("start_ts") is None or r.get("end_ts") is None:
+        raise HTTPException(400, "Defina início e fim do rali antes de dividir")
+    at = float(payload.get("at", -1))
+    if not (r["start_ts"] < at < r["end_ts"]):
+        raise HTTPException(400, "O ponto de divisão precisa estar entre o início e o fim do rali")
+    first_winner = payload.get("winner_first", "pendente")
+    if first_winner not in ("nos", "adv", "pendente"):
+        raise HTTPException(400, "Vencedor inválido")
+    acts = await db.actions.find({"rally_id": item_id}, {"_id": 0, "id": 1, "timestamp": 1}).to_list(1000)
+    first_ids = [a["id"] for a in acts if a.get("timestamp", 0) < at]
+    second_ids = [a["id"] for a in acts if a.get("timestamp", 0) >= at]
+    await db.rallies.update_one({"id": item_id}, {"$set": {"end_ts": at, "winner": first_winner, "winner_manual": True, "action_ids": first_ids}})
+    new = await insert("rallies", {
+        "video_id": r["video_id"], "number": r["number"] + 0.5, "set_number": r.get("set_number") or 1, "set_manual": bool(r.get("set_manual")),
+        "winner": r.get("winner"), "serving_team": None, "start_ts": at, "end_ts": r["end_ts"], "action_ids": second_ids,
+        "situation": None, "label": "Rally ", "source": "divisao",
+    })
+    if second_ids:
+        await db.actions.update_many({"id": {"$in": second_ids}}, {"$set": {"rally_id": new["id"]}})
+    await renumber_chrono(r["video_id"])
+    await recalc_scores(r["video_id"])
+    return {"first": await db.rallies.find_one({"id": item_id}, {"_id": 0}), "second": await db.rallies.find_one({"id": new["id"]}, {"_id": 0})}
+
+
+@api_router.post("/rallies/merge")
+async def merge_rallies(payload: Dict[str, Any]):
+    ids = payload.get("ids") or []
+    if len(ids) != 2:
+        raise HTTPException(400, "Selecione exatamente dois ralis consecutivos")
+    rs = await db.rallies.find({"id": {"$in": ids}}, {"_id": 0}).to_list(2)
+    if len(rs) != 2 or rs[0]["video_id"] != rs[1]["video_id"]:
+        raise HTTPException(404, "Ralis não encontrados")
+    a, b = sorted(rs, key=lambda x: x["number"])
+    if b["number"] - a["number"] != 1:
+        raise HTTPException(400, "Só é possível unir ralis consecutivos")
+    ts = [x for x in (a.get("start_ts"), a.get("end_ts"), b.get("start_ts"), b.get("end_ts")) if x is not None]
+    await db.rallies.update_one({"id": a["id"]}, {"$set": {
+        "start_ts": min(ts) if ts else None, "end_ts": max(ts) if ts else None, "winner": b.get("winner"),
+        "winner_manual": True, "action_ids": (a.get("action_ids") or []) + (b.get("action_ids") or []),
+    }})
+    await db.actions.update_many({"rally_id": b["id"]}, {"$set": {"rally_id": a["id"]}})
+    await db.rallies.delete_one({"id": b["id"]})
+    await renumber_chrono(a["video_id"])
+    await recalc_scores(a["video_id"])
+    return await db.rallies.find_one({"id": a["id"]}, {"_id": 0})
+
+
 @api_router.patch("/videos/{item_id}/original")
 async def set_video_original(item_id: str, payload: Dict[str, Any]):
     return await update("videos", item_id, {"original_storage_path": payload.get("storage_path")})
@@ -1359,6 +1471,10 @@ app.include_router(api_router)
 from integration_layer import integration_router  # noqa: E402
 app.include_router(integration_router)
 
+import video_jobs  # noqa: E402
+video_jobs.configure(db=db, get_object=get_object, put_object=put_object, emergent_key=EMERGENT_KEY, app_name=APP_NAME)
+app.include_router(video_jobs.router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -1435,6 +1551,7 @@ async def migrate():
 
 @app.on_event("startup")
 async def startup():
+    await video_jobs.mark_interrupted()
     try:
         init_storage()
         logger.info("Storage initialized")

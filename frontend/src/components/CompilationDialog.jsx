@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Film, Loader2, AlertTriangle } from "lucide-react";
+import { Film, Loader2, AlertTriangle, Server, Star } from "lucide-react";
+import { createCompilation } from "@/lib/api";
+import { isHighlight, notifyJobs } from "@/lib/highlights";
 import { renderCompilation, renderSourcePath, actionRange } from "@/lib/clipRender";
 import { formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -17,14 +19,16 @@ export const CompilationDialog = ({ open, onClose, actions, videosById, athletes
   const [classId, setClassId] = useState("");
   const [split, setSplit] = useState("one");
   const [busy, setBusy] = useState(false);
+  const [hl, setHl] = useState(false);
 
   const athleteName = (id) => athletes.find((a) => a.id === id)?.name || "";
   const usedFunds = useMemo(() => funds.filter((f) => actions.some((a) => a.fundamento_id === f.id)), [funds, actions]);
   const picked = useMemo(() => actions.filter((a) =>
     (selFunds.length === 0 || selFunds.includes(a.fundamento_id)) &&
+    (!hl || isHighlight(a)) &&
     (!classId || a.classificacao_id === classId) &&
     (scope === "team" ? a.team !== "adv" : athleteId && (a.athlete_ids || []).includes(athleteId))
-  ).sort((x, y) => (x.video_id === y.video_id ? x.timestamp - y.timestamp : (videosById[x.video_id]?.match_date || "").localeCompare(videosById[y.video_id]?.match_date || ""))), [actions, selFunds, classId, scope, athleteId, videosById]);
+  ).sort((x, y) => (x.video_id === y.video_id ? x.timestamp - y.timestamp : (videosById[x.video_id]?.match_date || "").localeCompare(videosById[y.video_id]?.match_date || ""))), [actions, selFunds, classId, scope, athleteId, videosById, hl]);
   const playable = picked.filter((a) => renderSourcePath(videosById[a.video_id]));
   const skipped = picked.length - playable.length;
   const totalDur = playable.reduce((s, a) => { const [st, en] = actionRange(a); return s + Math.max(0, en - st); }, 0);
@@ -62,6 +66,18 @@ export const CompilationDialog = ({ open, onClose, actions, videosById, athletes
     finally { setBusy(false); }
   };
 
+  const generateServer = async () => {
+    if (!playable.length) return toast.error("Nenhum lance com vídeo disponível para exportar");
+    setBusy(true);
+    try {
+      await createCompilation({ action_ids: playable.map((a) => a.id), who, split, title: `${hl ? "Melhores momentos" : "Compilação"} — ${who}` });
+      notifyJobs();
+      toast.success("Compilação iniciada no servidor", { description: "Pode fechar a página. Você será avisado no sininho quando terminar." });
+      onClose();
+    } catch (e) { toast.error(e?.response?.data?.detail || "Falha ao iniciar a compilação"); }
+    finally { setBusy(false); }
+  };
+
   return (
     <Dialog open={open} onOpenChange={(o) => !o && !busy && onClose()}>
       <DialogContent data-testid="compilation-dialog" className="max-w-xl max-h-[90vh] overflow-auto">
@@ -85,7 +101,8 @@ export const CompilationDialog = ({ open, onClose, actions, videosById, athletes
           )}
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground w-28 shrink-0">Fundamentos</span>
-            <button data-testid="comp-fund-all" onClick={() => setSelFunds([])} className={chip(selFunds.length === 0)}>Todos</button>
+            <button data-testid="comp-highlights" onClick={() => { setHl((x) => !x); setSelFunds([]); setClassId(""); }} className={chip(hl)}><Star size={11} className="inline mr-1" />Melhores momentos</button>
+            <button data-testid="comp-fund-all" onClick={() => { setSelFunds([]); setHl(false); }} className={chip(selFunds.length === 0 && !hl)}>Todos</button>
             {usedFunds.map((f) => (
               <button key={f.id} data-testid={`comp-fund-${f.id}`} onClick={() => { setClassId(""); setSelFunds((s) => (s.includes(f.id) ? s.filter((x) => x !== f.id) : [...s, f.id])); }} className={chip(selFunds.includes(f.id))}>
                 <span className="inline-block h-2 w-2 rounded-full mr-1" style={{ background: f.color }} />{f.name}
@@ -111,11 +128,14 @@ export const CompilationDialog = ({ open, onClose, actions, videosById, athletes
             {Object.entries(groups()).map(([n, l]) => <span key={n} className="ml-2 text-xs text-muted-foreground">{n}: {l.length}</span>)}
             {skipped > 0 && <div data-testid="comp-skipped" className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-500"><AlertTriangle size={12} /> {skipped} lance(s) de vídeos do YouTube sem arquivo original anexado ficarão de fora.</div>}
           </div>
-          <p className="text-[11px] text-muted-foreground">A gravação acontece no navegador em tempo real (dura aproximadamente o tempo dos lances). Mantenha esta aba aberta até o download.</p>
+          <p className="text-[11px] text-muted-foreground"><b>No servidor:</b> continua mesmo com a página fechada e avisa no sininho (título e legendas; sem os desenhos). <b>No navegador:</b> inclui as setas e desenhos, mas grava em tempo real com a aba aberta.</p>
           <div className="flex justify-end gap-2">
             <button data-testid="comp-cancel" disabled={busy} onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm disabled:opacity-50">Fechar</button>
-            <button data-testid="comp-generate" disabled={busy || !playable.length} onClick={generate} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">
-              {busy ? <Loader2 size={14} className="animate-spin" /> : <Film size={14} />} Gerar e salvar vídeo
+            <button data-testid="comp-generate" disabled={busy || !playable.length} onClick={generate} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-sm font-semibold hover:border-primary/40 disabled:opacity-50">
+              {busy ? <Loader2 size={14} className="animate-spin" /> : <Film size={14} />} No navegador (com desenhos)
+            </button>
+            <button data-testid="comp-generate-server" disabled={busy || !playable.length} onClick={generateServer} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">
+              <Server size={14} /> Gerar no servidor
             </button>
           </div>
         </div>

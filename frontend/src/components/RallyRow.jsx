@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
-import { Play, Trophy, Film, Trash2, Pencil, AlertTriangle, Lock } from "lucide-react";
+import { Play, Trophy, Film, Trash2, Pencil, AlertTriangle, Lock, Scissors, Merge, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatTime } from "@/lib/format";
 
 const btn = "h-6 w-6 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-primary disabled:opacity-40";
 
-export const RallyRow = ({ r, teamName, time, setCount, exporting, onPlay, onWinner, onExport, onRemove, onSelectAction, onEdit }) => {
+export const RallyRow = ({ r, teamName, time, setCount, exporting, hasNext, onPlay, onWinner, onExport, onRemove, onSelectAction, onEdit, onSplit, onMergeNext }) => {
   const [edit, setEdit] = useState(false);
   const [st, setSt] = useState(r.start_ts ?? "");
   const [en, setEn] = useState(r.end_ts ?? "");
+  const [splitW, setSplitW] = useState("pendente");
   useEffect(() => { setSt(r.start_ts ?? ""); setEn(r.end_ts ?? ""); }, [r.start_ts, r.end_ts]);
   const winCls = r.winner === "nos" ? "bg-primary/15 text-primary" : r.winner === "adv" ? "bg-foreground/15" : "bg-amber-500/15 text-amber-500";
   const save = () => { onEdit(r, { start_ts: st === "" ? null : Number(st), end_ts: en === "" ? null : Number(en) }); setEdit(false); };
@@ -21,6 +22,7 @@ export const RallyRow = ({ r, teamName, time, setCount, exporting, onPlay, onWin
         </span>
         <span className="font-data text-xs text-muted-foreground">{r.score_before?.nos ?? 0}-{r.score_before?.adv ?? 0} → <b className="text-foreground">{r.score_after?.nos ?? 0}-{r.score_after?.adv ?? 0}</b></span>
         <span className="text-[10px] rounded bg-secondary px-1">Set {r.set_number || 1}{r.set_manual && <Lock size={8} className="inline ml-0.5" />}</span>
+        {r.source === "ia" && <span title={r.ai_reason || "Sugerido pela IA e confirmado"} className="text-[10px] rounded bg-primary/10 text-primary px-1"><Sparkles size={8} className="inline" /> IA {Math.round((r.ai_confidence || 0) * 100)}%</span>}
         {r.closes_set && <span data-testid={`rally-closes-set-${r.number}`} className="text-[10px] rounded bg-emerald-500/15 text-emerald-500 px-1 font-semibold">fim do set</span>}
         <div className="ml-auto flex shrink-0 items-center gap-1">
           <button data-testid={`rally-play-${r.number}`} onClick={() => onPlay(r)} className="h-6 w-6 rounded-lg bg-primary/15 flex items-center justify-center text-primary hover:bg-primary/25"><Play size={12} /></button>
@@ -56,6 +58,14 @@ export const RallyRow = ({ r, teamName, time, setCount, exporting, onPlay, onWin
             </select>
           </label>
           <button data-testid={`rally-save-${r.number}`} onClick={save} className="rounded bg-primary px-2 py-1 font-semibold text-primary-foreground">Salvar tempos</button>
+          <div className="w-full flex flex-wrap items-center gap-2 pt-1 border-t border-border/60">
+            <span className="text-muted-foreground">Dividir em <b className="font-data text-foreground">{formatTime(time)}</b> (tempo atual) · 1ª parte foi ponto de</span>
+            <select data-testid={`rally-split-winner-${r.number}`} value={splitW} onChange={(e) => setSplitW(e.target.value)} className="rounded border border-border bg-background px-1 py-1">
+              <option value="nos">{teamName("nos")}</option><option value="adv">{teamName("adv")}</option><option value="pendente">Pendente</option>
+            </select>
+            <button data-testid={`rally-split-${r.number}`} onClick={() => onSplit(r, time, splitW)} className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 hover:border-primary/40"><Scissors size={11} /> Dividir</button>
+            {hasNext && <button data-testid={`rally-merge-next-${r.number}`} onClick={() => onMergeNext(r)} className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 hover:border-primary/40"><Merge size={11} /> Unir com o rali #{r.number + 1}</button>}
+          </div>
         </div>
       )}
       <div className="flex flex-wrap gap-1 mt-1.5 pl-10">

@@ -129,6 +129,17 @@ export const removePoint = (id, body) => client.post(`/rallies/${id}/remove-poin
 export const reattachAction = (id) => client.patch(`/actions/${id}/attach`).then((r) => r.data);
 export const setVideoOriginal = (id, storage_path) => client.patch(`/videos/${id}/original`, { storage_path }).then((r) => r.data);
 export const getMatch = (videoId) => client.get(`/videos/${videoId}/match`).then((r) => r.data);
+export const getJobs = () => client.get("/jobs").then((r) => r.data);
+export const readAllJobs = () => client.post("/jobs/read-all").then((r) => r.data);
+export const deleteJob = (id) => client.delete(`/jobs/${id}`).then((r) => r.data);
+export const createCompilation = (body) => client.post("/compilations", body).then((r) => r.data);
+export const highlightsAllAthletes = () => client.post("/highlights/all-athletes").then((r) => r.data);
+export const detectRallies = (videoId, body) => client.post(`/videos/${videoId}/detect-rallies`, body).then((r) => r.data);
+export const getRallySuggestions = (videoId) => client.get(`/videos/${videoId}/rally-suggestions`).then((r) => r.data);
+export const acceptSuggestion = (id, body) => client.post(`/rally-suggestions/${id}/accept`, body).then((r) => r.data);
+export const rejectSuggestion = (id) => client.post(`/rally-suggestions/${id}/reject`).then((r) => r.data);
+export const splitRally = (id, body) => client.post(`/rallies/${id}/split`, body).then((r) => r.data);
+export const mergeRallies = (ids) => client.post("/rallies/merge", { ids }).then((r) => r.data);
 export const saveMatchRules = (videoId, body) => client.put(`/videos/${videoId}/rules`, body).then((r) => r.data);
 export const applyProposedSets = (videoId) => client.post(`/videos/${videoId}/apply-proposed-sets`).then((r) => r.data);
 export const editRally = (id, body) => client.put(`/rallies/${id}`, body).then((r) => r.data);

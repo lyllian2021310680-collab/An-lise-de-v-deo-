@@ -2,6 +2,7 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Home, Film, Users, ClipboardList, BarChart3, Settings, Sun, Moon, ArrowLeft, Menu, X, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { AvaLogo } from "./AvaLogo";
+import { JobsBell } from "./JobsBell";
 import { useTheme } from "../context/ThemeContext";
 import { cn } from "../lib/utils";
 
@@ -57,6 +58,7 @@ export const Layout = ({ children, title, subtitle, back, actions }) => {
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
+            <JobsBell />
             <button
               onClick={toggle}
               data-testid="theme-toggle"

@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
-import { getAthletes, getPositions, createAthlete, updateAthlete, deleteAthlete, getActions } from "@/lib/api";
-import { Plus, User, Pencil, Trash2, Shirt, FolderOpen } from "lucide-react";
+import { getAthletes, getPositions, createAthlete, updateAthlete, deleteAthlete, getActions, highlightsAllAthletes } from "@/lib/api";
+import { notifyJobs } from "@/lib/highlights";
+import { Plus, User, Pencil, Trash2, Shirt, FolderOpen, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -56,7 +57,7 @@ export default function Athletes() {
       title="Pastas dos Atletas"
       subtitle="Cadastro e dossiê individual de cada atleta"
       back="/"
-      actions={<button data-testid="athlete-add-btn" onClick={openNew} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110"><Plus size={16} /> Novo atleta</button>}
+      actions={<><button data-testid="highlights-all-btn" onClick={async () => { try { const r = await highlightsAllAthletes(); notifyJobs(); toast.success(`${r.created} vídeo(s) de melhores momentos em produção`, { description: "Ataques ponto, bloqueios ponto e aces. Você será avisado no sininho." }); } catch (e) { toast.error(e?.response?.data?.detail || "Falha ao iniciar"); } }} className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold hover:border-primary/40"><Star size={16} className="text-primary" /> Melhores momentos de todos</button><button data-testid="athlete-add-btn" onClick={openNew} className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110"><Plus size={16} /> Novo atleta</button></>}
     >
       <div className="flex gap-2 overflow-x-auto no-scrollbar mb-6">
         <button onClick={() => setPosFilter("todos")} data-testid="pos-filter-todos" className={cn("shrink-0 rounded-full px-4 py-2 text-sm font-medium border", posFilter === "todos" ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground")}>Todos</button>

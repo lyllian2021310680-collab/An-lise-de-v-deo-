@@ -8,12 +8,13 @@ import {
   getVideo, getFundamentos, getClassificacoes, getAthletes, getPositions, getFormations, getSettings,
   getActions, createAction, updateAction, deleteAction, setVideoStatus, linkRally,
   getKphases, suggestPhase, closePoint, setRallyWinner, getRalliesFull, updateVideo,
-  removePoint, reattachAction, setVideoOriginal, uploadFile, getMatch, saveMatchRules, applyProposedSets, editRally,
+  removePoint, reattachAction, setVideoOriginal, uploadFile, getMatch, saveMatchRules, applyProposedSets, editRally, splitRally, mergeRallies,
 } from "@/lib/api";
 import { MatchSummary } from "@/components/MatchSummary";
 import { RallyRow } from "@/components/RallyRow";
 import { SetRulesDialog } from "@/components/SetRulesDialog";
 import { CompilationDialog } from "@/components/CompilationDialog";
+import { RallySuggestions } from "@/components/RallySuggestions";
 import { AnnoTimingPanel } from "@/components/AnnoTimingPanel";
 import { RemovePointDialog } from "@/components/RemovePointDialog";
 import { renderClip, renderSourcePath } from "@/lib/clipRender";
@@ -185,6 +186,16 @@ export default function Analyze() {
     } catch (e) { toast.error(e?.response?.data?.detail || "Falha ao salvar as regras"); }
   };
   const applyProposal = async () => { const s = await applyProposedSets(videoId); await Promise.all([reloadRallies(), reloadActions()]); toast.success(`${s.moved} rali(s) reorganizado(s) conforme as regras`); };
+  const onSplitRally = async (r, at, winnerFirst) => {
+    try { await splitRally(r.id, { at, winner_first: winnerFirst }); } catch (e) { return toast.error(e?.response?.data?.detail || "Falha ao dividir o rali"); }
+    await Promise.all([reloadRallies(), reloadActions()]); toast.success(`Rali #${r.number} dividido em dois — placar recalculado`);
+  };
+  const onMergeNext = async (r) => {
+    const next = rallies.find((x) => x.number === r.number + 1);
+    if (!next) return;
+    try { await mergeRallies([r.id, next.id]); } catch (e) { return toast.error(e?.response?.data?.detail || "Falha ao unir os ralis"); }
+    await Promise.all([reloadRallies(), reloadActions()]); toast.success(`Ralis #${r.number} e #${next.number} unidos — placar recalculado`);
+  };
   const onEditRally = async (r, body) => {
     try { await editRally(r.id, body); } catch (e) { return toast.error(e?.response?.data?.detail || "Falha ao salvar o rali"); }
     await Promise.all([reloadRallies(), reloadActions()]); toast.success("Rali atualizado — placar recalculado");
@@ -607,6 +618,7 @@ export default function Analyze() {
           </div>
 
           {/* RALLY HISTORY */}
+          <RallySuggestions video={video} teamName={teamName} time={time} onPlay={(t) => playerRef.current?.seekTo(Math.max(0, Number(t)))} onChanged={() => Promise.all([reloadRallies(), reloadActions()])} />
           <div className="rounded-xl border border-border bg-card overflow-hidden">
             <div className="p-3 border-b border-border flex items-center gap-2">
               <ListOrdered size={16} className="text-primary" />
@@ -619,6 +631,7 @@ export default function Analyze() {
               ) : visibleRallies.map((r) => (
                 <RallyRow key={r.id} r={r} teamName={teamName} time={time} setCount={setCount} exporting={exporting}
                   onPlay={(x) => x.start_ts != null && playerRef.current?.seekTo(Math.max(0, x.start_ts))}
+                  hasNext={rallies.some((x) => x.number === r.number + 1)} onSplit={onSplitRally} onMergeNext={onMergeNext}
                   onWinner={changeWinner} onExport={exportRally} onRemove={setRemoveRally} onSelectAction={selectAction} onEdit={onEditRally} />
               ))}
             </div>
